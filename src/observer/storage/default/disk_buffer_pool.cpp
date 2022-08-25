@@ -524,7 +524,8 @@ BufferPoolManager::~BufferPoolManager()
     delete iter.second;
   }
 }
-
+// 一个 buffer pool 对应一个文件
+// 执行 create table 时创建一个对应的 bufferpool
 RC BufferPoolManager::create_file(const char *file_name)
 {
   int fd = open(file_name, O_RDWR | O_CREAT | O_EXCL, S_IREAD | S_IWRITE);
@@ -548,17 +549,17 @@ RC BufferPoolManager::create_file(const char *file_name)
   memset(&page, 0, sizeof(Page));
 
   BPFileHeader *file_header = (BPFileHeader *)page.data;
-  file_header->allocated_pages = 1;
-  file_header->page_count = 1;
+  file_header->allocated_pages = 1;// 已分配的页数
+  file_header->page_count = 1;// 
 
-  char *bitmap = file_header->bitmap;
-  bitmap[0] |= 0x01;
+  char *bitmap = file_header->bitmap;// bitmap 记录页占用与否
+  bitmap[0] |= 0x01;// 标记一个页已经被占用
   if (lseek(fd, 0, SEEK_SET) == -1) {
     LOG_ERROR("Failed to seek file %s to position 0, due to %s .", file_name, strerror(errno));
     close(fd);
     return RC::IOERR_SEEK;
   }
-
+// 将 page 信息写入bufferpool 对应的文件中
   if (write(fd, (char *)&page, sizeof(Page)) != sizeof(Page)) {
     LOG_ERROR("Failed to write header to file %s, due to %s.", file_name, strerror(errno));
     close(fd);

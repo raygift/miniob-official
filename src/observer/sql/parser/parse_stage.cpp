@@ -129,7 +129,7 @@ RC ParseStage::handle_request(StageEvent *event)
     return RC::INTERNAL;
   }
 
-  RC ret = parse(sql.c_str(), query_result);
+  RC ret = parse(sql.c_str(), query_result);// 调用 yacc 对传入的sql 字符串执行词法解析
   if (ret != RC::SUCCESS) {
     // set error information to event
     sql_event->session_event()->set_response("Failed to parse sql\n");
