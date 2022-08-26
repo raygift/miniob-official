@@ -71,7 +71,8 @@ RC Db::create_table(const char *table_name, int attribute_count, const AttrInfo 
     return rc;
   }
 
-  opened_tables_[table_name] = table;
+  opened_tables_[table_name] =
+      table;  // miniob 启动时会打开所有已存在的table，因此创建新table 后需要加入到 opened_tables 中
   LOG_INFO("Create table success. table name=%s", table_name);
   return RC::SUCCESS;
 }
@@ -95,7 +96,7 @@ RC Db::drop_table(const char *table_name)
   }
 
   opened_tables_.erase(t);  // 从表opend_tables_ 中删除被drop 的表
-
+  delete table;
   LOG_INFO("Drop table success. table name=%s", table_name);
   return rc;
 }

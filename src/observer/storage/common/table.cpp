@@ -133,8 +133,12 @@ RC Table::destroy(const char *path)
     return RC::GENERIC_ERROR;
   }
 
-  std::string data_file =
-      std::string(path) + "/" + name() + TABLE_DATA_SUFFIX;  // 拼接得到表数据文件的存储目录： {db 存储目录}/{表名}.data
+  std::string data_file = table_data_file(
+      path, table_meta_.name());  // 使用 table_data_file 直接得到表数据文件的存储目录： {db 存储目录}/{表名}.data
+
+  // std::string data_file =
+  //     std::string(path) + "/" + name() + TABLE_DATA_SUFFIX;  // 拼接得到表数据文件的存储目录： {db
+  //     存储目录}/{表名}.data
   if (unlink(data_file.c_str()) != 0) {
     LOG_ERROR("Failed to remove data file=%s, errno=%d", data_file.c_str(), errno);
     return RC::GENERIC_ERROR;
@@ -147,10 +151,15 @@ RC Table::destroy(const char *path)
   const int index_num = table_meta_.index_num();
   for (int i = 0; i < index_num; i++) {
     // B+树节点关闭
-
+    ((BplusTreeIndex *)indexes_[i])->close();            // 删除 B+树索引 indexes_ 中记录
+    const IndexMeta *index_meta = table_meta_.index(i);  // 获取 index 对应的列明，组成index 文件的文件名
+    std::string index_file = table_index_file(path, name(), index_meta->name());
+    if (unlink(index_file.c_str()) != 0) {
+      LOG_ERROR("Failed to remove index file=%s, errno=%d", index_file, errno);
+      return RC::GENERIC_ERROR;
+    }
     // index 文件删除
   }
-  // std::string index_file =
 
   return RC::SUCCESS;
 }
