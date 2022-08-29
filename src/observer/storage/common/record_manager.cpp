@@ -180,12 +180,14 @@ RC RecordPageHandler::update_record(const Record *rec)
     LOG_ERROR("Invalid slot_num %d, slot is empty, page_num %d.",
 	      rec->rid().slot_num, frame_->page_num());
     return RC::RECORD_RECORD_NOT_EXIST;
-  } else {
+  } else {// 执行到此处，但最终未完成update
     char *record_data = get_record_data(rec->rid().slot_num);
     memcpy(record_data, rec->data(), page_header_->record_real_size);
     bitmap.set_bit(rec->rid().slot_num);
     frame_->mark_dirty();
-    // LOG_TRACE("Update record. file_id=%d, page num=%d,slot=%d", file_id_, rec->rid.page_num, rec->rid.slot_num);
+
+    LOG_WARN("Update record. page num=%d,slot=%d", rec->rid().page_num, rec->rid().slot_num);
+    // LOG_TRACE("Update record. file_id=%d, page num=%d,slot=%d", file_id_, rec->rid().page_num, rec->rid().slot_num);
     return RC::SUCCESS;
   }
 }

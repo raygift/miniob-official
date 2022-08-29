@@ -74,7 +74,7 @@ RC TableMeta::init(const char *name, int field_num, const AttrInfo attributes[])
 
   fields_.resize(field_num + sys_fields_.size());
   for (size_t i = 0; i < sys_fields_.size(); i++) {
-    fields_[i] = sys_fields_[i];
+    fields_[i] = sys_fields_[i];// 在用户定义的列之外，还存在一些隐藏的 sys_fields_，fields_ 先记录这些 sys_fields_
   }
 
   // 当前实现下，所有类型都是4字节对齐的，所以不再考虑字节对齐问题
@@ -82,7 +82,7 @@ RC TableMeta::init(const char *name, int field_num, const AttrInfo attributes[])
 
   for (int i = 0; i < field_num; i++) {// 将所有字段(field)名称与类型存入 fields 中
     const AttrInfo &attr_info = attributes[i];
-    rc = fields_[i + sys_fields_.size()].init(attr_info.name, attr_info.type, field_offset, attr_info.length, true);
+    rc = fields_[i + sys_fields_.size()].init(attr_info.name, attr_info.type, field_offset, attr_info.length, true);// 将用户定义的列加入到 sys_fields_ 之后
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to init field meta. table name=%s, field name: %s", name, attr_info.name);
       return rc;

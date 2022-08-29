@@ -207,7 +207,8 @@ RC DefaultHandler::update_record(Trx *trx, const char *dbname, const char *relat
   if (nullptr == table) {
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
-
+  // 此处未构造 ConditionFilter
+  // 需要在 table->update_record 中参考上面 delete_record 构造 filter
   return table->update_record(trx, attribute_name, value, condition_num, conditions, updated_count);
 }
 

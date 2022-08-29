@@ -650,10 +650,102 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
   return rc;
 }
 
+// 参考 RecordDeleter 新增
+// 用于完成 record 的更新操作
+class RecordUpdater {
+public:
+  RecordUpdater(Table &table, Trx *trx) : table_(table), trx_(trx)
+  {}
+
+  RC update_record(Record *record)
+  {
+    RC rc = RC::SUCCESS;
+    rc = table_.update_record(trx_, record);
+    if (rc == RC::SUCCESS) {
+      updated_count_++;
+    }
+    return rc;
+  }
+
+  int updated_count() const
+  {
+    return updated_count_;
+  }
+
+private:
+  Table &table_;
+  Trx *trx_;
+  int updated_count_ = 0;
+};
+
+// 参考 record_reader_delete_adapter
+static RC record_reader_update_adapter(Record *record, void *context)
+{
+  RecordUpdater &record_updater = *(RecordUpdater *)context;
+  return record_updater.update_record(record);
+}
+
+// 参考 delete_entry_of_indexes 新增
+RC Table::update_entry_of_indexes(const char *record, const RID &rid, bool error_on_not_exists)
+{
+  RC rc = RC::SUCCESS;
+  // for (Index *index : indexes_) {
+  //   rc = index->delete_entry(record, &rid);
+  //   if (rc != RC::SUCCESS) {
+  //     if (rc != RC::RECORD_INVALID_KEY || !error_on_not_exists) {
+  //       break;
+  //     }
+  //   }
+  // }
+  // TODO(zhangpc) 更新对应的索引信息
+  LOG_DEBUG("need update_entry_of_indexes");
+  return rc;
+}
+
+// 参考 delete_record 增加重载
+RC Table::update_record(Trx *trx, Record *record)
+{
+  RC rc = RC::SUCCESS;
+  if (trx != nullptr) {
+    rc = trx->update_record(this, record);
+  } else {
+    rc = update_entry_of_indexes(record->data(), record->rid(), false);  // 重复代码 refer to commit_delete
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("Failed to delete indexes of record (rid=%d.%d). rc=%d:%s",
+          record->rid().page_num,
+          record->rid().slot_num,
+          rc,
+          strrc(rc));
+    } else {
+      rc = record_handler_->update_record(record);
+    }
+  }
+  return rc;
+}
+
+// update 操作从此开始执行
 RC Table::update_record(Trx *trx, const char *attribute_name, const Value *value, int condition_num,
     const Condition conditions[], int *updated_count)
 {
-  return RC::GENERIC_ERROR;
+  // TODO(zhangpc) 实现数据更新
+  // LOG_ERROR("update_record TODO\n");
+
+  // 根据 conditions 构造 filter
+  CompositeConditionFilter condition_filter;
+  RC rc = condition_filter.init(*this, conditions, condition_num);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  // 参考 delete_record(Trx *trx, ConditionFilter *filter, int *deleted_count)
+  // 构造 RecordUpdater
+  RecordUpdater updater(*this, trx);
+  rc = scan_record(trx, &condition_filter, -1, &updater, record_reader_update_adapter);
+  if (updated_count != nullptr) {
+    *updated_count = updater.updated_count();
+  }
+  return rc;
+
+  // return RC::GENERIC_ERROR;
 }
 
 class RecordDeleter {

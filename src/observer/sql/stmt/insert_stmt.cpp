@@ -41,7 +41,7 @@ RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
   const Value *values = inserts.values;
   const int value_num = inserts.value_num;
   const TableMeta &table_meta = table->table_meta();
-  const int field_num = table_meta.field_num() - table_meta.sys_field_num();
+  const int field_num = table_meta.field_num() - table_meta.sys_field_num();  // 总列数减去 sys_field_ 数量，得到用户建表时指定的列数量
   if (field_num != value_num) {
     LOG_WARN("schema mismatch. value num=%d, field num in schema=%d", value_num, field_num);
     return RC::SCHEMA_FIELD_MISSING;

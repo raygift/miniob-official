@@ -187,7 +187,7 @@ void DefaultStorageStage::handle_event(StageEvent *event)
   }
 
   session_event->set_response(response);
-  // event->done_immediate();
+  // event->done_immediate(); // TODO(zhangpc)，完成drop-table 时发现会多执行一次done_immediate() 导致event 被清除后再次获取其成员变量最终 segmentation fault
 
   LOG_TRACE("Exit\n");
 }
