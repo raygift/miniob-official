@@ -655,7 +655,30 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
 RC Table::update_record_data(Record *old_record,  const char *attribute_name, const Value *values)
 {
   RC rc = RC::SUCCESS;
+
+  // 检查字段类型是否一致
+  // 遍历表元数据，找到匹配的列
+  bool field_existed = false;
+
   const int normal_field_start_index = table_meta_.sys_field_num();  // 非 sys 列的起始编号，位于 sys 列之后
+  for (int i = normal_field_start_index; i <= table_meta_.field_num(); i++) {  // 遍历非 sys 列，寻找匹配的列名
+    const FieldMeta *field = table_meta_.field(i);
+    if (0 == strcmp(field->name(), attribute_name)) {
+      field_existed = true;
+      if (field->type() != values->type) {
+        LOG_WARN("Input values don't match the table's schema, table name:%s", table_meta_.name());
+        return RC::SCHEMA_FIELD_MISSING;
+      } else {
+        break;
+      }
+    }
+  }
+  if (!field_existed) {  // 不存在要更新的列
+    LOG_WARN("Input value doesn't exist in the table's schema, table name:%s", table_meta_.name());
+    return RC::SCHEMA_FIELD_MISSING;
+  }
+
+  // const int normal_field_start_index = table_meta_.sys_field_num();  // 非 sys 列的起始编号，位于 sys 列之后
   int record_size = table_meta_.record_size();
   char *new_record_data = new char[record_size];
   memcpy(new_record_data, old_record->data(), record_size);
