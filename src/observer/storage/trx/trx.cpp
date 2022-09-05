@@ -92,7 +92,7 @@ RC Trx::delete_record(Table *table, Record *record)
 }
 
 // 为 update 操作新增，参考 delete_record
-RC Trx::update_record(Table *table, Record *record)
+RC Trx::update_record(Table *table, Record *record,const char *old_record)
 {
   RC rc = RC::SUCCESS;
   //  TODO(zhangpc)

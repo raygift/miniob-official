@@ -319,16 +319,16 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values)
   }
 
   char *record_data;
-  RC rc = make_record(value_num, values, record_data);
+  RC rc = make_record(value_num, values, record_data);  // 根据 insert sql 语句 values 后的值，创建 record 数据
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to create a record. rc=%d:%s", rc, strrc(rc));
     return rc;
   }
 
   Record record;
-  record.set_data(record_data);
+  record.set_data(record_data);  // 创建 Record 实例，并将 record 数据填充到 data 成员
   // record.valid = true;
-  rc = insert_record(trx, &record);
+  rc = insert_record(trx, &record);  // 完成 Record 插入操作
   delete[] record_data;
   return rc;
 }
@@ -346,16 +346,16 @@ const TableMeta &Table::table_meta() const
 RC Table::make_record(int value_num, const Value *values, char *&record_out)
 {
   // 检查字段类型是否一致
-  if (value_num + table_meta_.sys_field_num() != table_meta_.field_num()) {
+  if (value_num + table_meta_.sys_field_num() != table_meta_.field_num()) {  // 传入的列数量应与表结构定义的列数量一致
     LOG_WARN("Input values don't match the table's schema, table name:%s", table_meta_.name());
     return RC::SCHEMA_FIELD_MISSING;
   }
 
-  const int normal_field_start_index = table_meta_.sys_field_num();
-  for (int i = 0; i < value_num; i++) {
+  const int normal_field_start_index = table_meta_.sys_field_num();  // 非 sys 列的起始编号，位于 sys 列之后
+  for (int i = 0; i < value_num; i++) {  // 针对每一列，获取列的元数据，检查传入值的类型是否合法
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
-    if (field->type() != value.type) {
+    if (field->type() != value.type) {  // 传入的列值与列定义的值类型不一致
       LOG_ERROR("Invalid value type. table name =%s, field name=%s, type=%d, but given=%d",
           table_meta_.name(),
           field->name(),
@@ -373,16 +373,16 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
     size_t copy_len = field->len();
-    if (field->type() == CHARS) {
+    if (field->type() == CHARS) {  // 对于类型为 char 的列，判断value 真实长度（为什么要处理？其他类型为什么不用处理？）
       const size_t data_len = strlen((const char *)value.data);
       if (copy_len > data_len) {
         copy_len = data_len + 1;
       }
     }
-    memcpy(record + field->offset(), value.data, copy_len);
+    memcpy(record + field->offset(), value.data, copy_len);  // 向新建的内存区域复制传入的 value 值
   }
 
-  record_out = record;
+  record_out = record;  // 返回所有value 值构成的内存区域
   return RC::SUCCESS;
 }
 
@@ -452,6 +452,8 @@ RC Table::scan_record(
   return scan_record(trx, filter, limit, (void *)&adapter, scan_record_reader_adapter);
 }
 
+// 通过 filter 查找满足条件的 Record
+// 并将得到的 Record 和 context 传给 record_reader() 方法进行处理
 RC Table::scan_record(
     Trx *trx, ConditionFilter *filter, int limit, void *context, RC (*record_reader)(Record *record, void *context))
 {
@@ -562,7 +564,7 @@ static RC insert_index_record_reader_adapter(Record *record, void *context)
 
 RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_name)
 {
-  if (common::is_blank(index_name) || common::is_blank(attribute_name)) {
+  if (common::is_blank(index_name) || common::is_blank(attribute_name)) {// 索引名和列名不能为空
     LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attribute_name is blank", name());
     return RC::INVALID_ARGUMENT;
   }
@@ -574,14 +576,14 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
     return RC::SCHEMA_INDEX_EXIST;
   }
 
-  const FieldMeta *field_meta = table_meta_.field(attribute_name);
+  const FieldMeta *field_meta = table_meta_.field(attribute_name);// 在表元数据中检查列是否存在
   if (!field_meta) {
     LOG_INFO("Invalid input arguments, there is no field of %s in table:%s.", attribute_name, name());
     return RC::SCHEMA_FIELD_MISSING;
   }
 
   IndexMeta new_index_meta;
-  RC rc = new_index_meta.init(index_name, *field_meta);
+  RC rc = new_index_meta.init(index_name, *field_meta);// 初始化索引元数据
   if (rc != RC::SUCCESS) {
     LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s, field_name:%s", name(), index_name, attribute_name);
     return rc;
@@ -650,23 +652,70 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
   return rc;
 }
 
+RC Table::update_record_data(Record *old_record,  const char *attribute_name, const Value *values)
+{
+  RC rc = RC::SUCCESS;
+  const int normal_field_start_index = table_meta_.sys_field_num();  // 非 sys 列的起始编号，位于 sys 列之后
+  int record_size = table_meta_.record_size();
+  char *new_record_data = new char[record_size];
+  memcpy(new_record_data, old_record->data(), record_size);
+
+  for (int i = 0; i < table_meta_.field_num(); i++) {
+    const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
+    size_t copy_len = field->len();
+    if (0 == strcmp(field->name(), attribute_name)) {  // 找到要更新的field
+      // // 记录待更新field 的旧值，用于后续查找并更新索引
+      // // old_attr_value = old_record;
+      // char *filed_value = new char[copy_len];
+      // memcpy(filed_value, new_record_data + field->offset(), copy_len);
+      // old_attr_value= field_value;
+      if (field->type() == CHARS) {  // 对于类型为 char 的列，判断新值真实长度
+        const size_t data_len = strlen((const char *)values->data);
+        if (copy_len > data_len) {
+          copy_len = data_len + 1;
+        }
+      }
+      memcpy(new_record_data + field->offset(), values->data, copy_len);  // 向要更新filed 的位置复制新值
+      break;
+    }
+  }
+
+  old_record->set_data(new_record_data);
+  return rc;
+}
+
 // 参考 RecordDeleter 新增
 // 用于完成 record 的更新操作
 class RecordUpdater {
 public:
-  RecordUpdater(Table &table, Trx *trx) : table_(table), trx_(trx)
+  RecordUpdater(Table &table, Trx *trx, const char *attribute_name, const Value *value)
+      : table_(table), trx_(trx), attribute_name_(attribute_name), value_(value)
   {}
 
   RC update_record(Record *record)
   {
     RC rc = RC::SUCCESS;
-    rc = table_.update_record(trx_, record);
+    char *old_field_data = record->data();  // 创建内存区域保存filed 更新前的值    
+    rc = table_.update_record_data(record, attribute_name_, value_);
+
+    // RC rc = make_record(value_num, values, record_data);// 根据 insert sql 语句 values 后的值，创建 record 数据
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("Failed to create a  updating record. rc=%d:%s", rc, strrc(rc));
+      return rc;
+    }
+
+    // 更新列值
+      LOG_WARN("Update record will table_.update_record. page num=%d,slot=%d",
+          record->rid().page_num,
+          record->rid().slot_num);
+
+    rc = table_.update_record(trx_, record, old_field_data);
     if (rc == RC::SUCCESS) {
       updated_count_++;
     }
+    // delete[] record_data;
     return rc;
   }
-
   int updated_count() const
   {
     return updated_count_;
@@ -675,49 +724,71 @@ public:
 private:
   Table &table_;
   Trx *trx_;
+  // 记录待更新的字段
+  const char *attribute_name_;
+  // 记录待更新字段的新值
+  const Value *value_;
   int updated_count_ = 0;
 };
 
 // 参考 record_reader_delete_adapter
+// 解析出 context 中的record_updater
+// 并使用 record_updater 完成对传入的 record 待更新字段的更新
 static RC record_reader_update_adapter(Record *record, void *context)
 {
   RecordUpdater &record_updater = *(RecordUpdater *)context;
   return record_updater.update_record(record);
 }
 
-// 参考 delete_entry_of_indexes 新增
-RC Table::update_entry_of_indexes(const char *record, const RID &rid, bool error_on_not_exists)
-{
-  RC rc = RC::SUCCESS;
-  // for (Index *index : indexes_) {
-  //   rc = index->delete_entry(record, &rid);
-  //   if (rc != RC::SUCCESS) {
-  //     if (rc != RC::RECORD_INVALID_KEY || !error_on_not_exists) {
-  //       break;
-  //     }
-  //   }
-  // }
-  // TODO(zhangpc) 更新对应的索引信息
-  LOG_DEBUG("need update_entry_of_indexes");
-  return rc;
-}
-
 // 参考 delete_record 增加重载
-RC Table::update_record(Trx *trx, Record *record)
+RC Table::update_record(Trx *trx, Record *record, const char *old_record_data)
 {
   RC rc = RC::SUCCESS;
   if (trx != nullptr) {
-    rc = trx->update_record(this, record);
+    rc = trx->update_record(this, record, old_record_data);
   } else {
-    rc = update_entry_of_indexes(record->data(), record->rid(), false);  // 重复代码 refer to commit_delete
+
+    // 删除索引旧值
+    rc = delete_entry_of_indexes(old_record_data, record->rid(), false);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to delete indexes of record (rid=%d.%d). rc=%d:%s",
           record->rid().page_num,
           record->rid().slot_num,
           rc,
           strrc(rc));
-    } else {
-      rc = record_handler_->update_record(record);
+    }
+
+    // 调用 record_handler_ 完成 page 中数据的更新
+    // 因此这里要传入的 record 需要是更新后的值
+    rc = record_handler_->update_record(record);
+
+    // 判断更新的列上是否存在index
+    // 若存在则更新index，先删除index 中旧的entry，再重新插入新entry
+    // if (table_.find_index_by_field() != nullptr) {
+    LOG_WARN(
+        "Update record will update index entry. page num=%d,slot=%d", record->rid().page_num, record->rid().slot_num);
+
+    // 新增索引新值
+    rc = insert_entry_of_indexes(old_record_data, record->rid());
+    if (rc != RC::SUCCESS) {
+      RC rc2 = delete_entry_of_indexes(old_record_data, record->rid(), true);
+      if (rc2 != RC::SUCCESS) {
+        LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
+            name(),
+            rc2,
+            strrc(rc2));
+      }
+      rc2 = record_handler_->delete_record(&record->rid());
+      if (rc2 != RC::SUCCESS) {
+        LOG_PANIC("Failed to rollback record data when insert index entries failed. table name=%s, rc=%d:%s",
+            name(),
+            rc2,
+            strrc(rc2));
+      }
+      LOG_PANIC(
+          "Failed to update record when insert index entries failed. table name=%s, rc=%d:%s", name(), rc, strrc(rc));
+      return rc;
+      // }
     }
   }
   return rc;
@@ -738,7 +809,7 @@ RC Table::update_record(Trx *trx, const char *attribute_name, const Value *value
   }
   // 参考 delete_record(Trx *trx, ConditionFilter *filter, int *deleted_count)
   // 构造 RecordUpdater
-  RecordUpdater updater(*this, trx);
+  RecordUpdater updater(*this, trx, attribute_name, value);
   rc = scan_record(trx, &condition_filter, -1, &updater, record_reader_update_adapter);
   if (updated_count != nullptr) {
     *updated_count = updater.updated_count();

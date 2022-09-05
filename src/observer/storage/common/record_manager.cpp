@@ -176,15 +176,15 @@ RC RecordPageHandler::update_record(const Record *rec)
   }
 
   Bitmap bitmap(bitmap_, page_header_->record_capacity);
-  if (!bitmap.get_bit(rec->rid().slot_num)) {
+  if (!bitmap.get_bit(rec->rid().slot_num)) {// bitmap 中并未记录record 对应slot_num 的信息
     LOG_ERROR("Invalid slot_num %d, slot is empty, page_num %d.",
 	      rec->rid().slot_num, frame_->page_num());
     return RC::RECORD_RECORD_NOT_EXIST;
-  } else {// 执行到此处，但最终未完成update
-    char *record_data = get_record_data(rec->rid().slot_num);
-    memcpy(record_data, rec->data(), page_header_->record_real_size);
-    bitmap.set_bit(rec->rid().slot_num);
-    frame_->mark_dirty();
+  } else {// bug(zhangpc) 执行到此处，但最终未完成update // bitmap 中找到了record 对应的 slot_num 信息
+    char *record_data = get_record_data(rec->rid().slot_num);// 得到该 Record 的起始地址
+    memcpy(record_data, rec->data(), page_header_->record_real_size);// 将入参 rec 的数据复制到该 Record中
+    bitmap.set_bit(rec->rid().slot_num);// 在 bitmap 中记录buffer pool 中 Frame 的 slot_num 位置已被占用
+    frame_->mark_dirty();// 标记bufferpool 中 frame 为脏页
 
     LOG_WARN("Update record. page num=%d,slot=%d", rec->rid().page_num, rec->rid().slot_num);
     // LOG_TRACE("Update record. file_id=%d, page num=%d,slot=%d", file_id_, rec->rid().page_num, rec->rid().slot_num);
@@ -222,7 +222,7 @@ RC RecordPageHandler::delete_record(const RID *rid)
 
 RC RecordPageHandler::get_record(const RID *rid, Record *rec)
 {
-  if (rid->slot_num >= page_header_->record_capacity) {
+  if (rid->slot_num >= page_header_->record_capacity) {// slot_num 超过 page 的最大容量，则 slot_num非法
     LOG_ERROR("Invalid slot_num:%d, exceed page's record capacity, page_num %d.",
 	      rid->slot_num, frame_->page_num());
     return RC::RECORD_INVALIDRID;

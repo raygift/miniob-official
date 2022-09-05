@@ -758,7 +758,7 @@ RC BplusTreeHandler::create(const char *file_name, AttrType attr_type, int attr_
 			    int internal_max_size /* = -1*/, int leaf_max_size /* = -1 */)
 {
   BufferPoolManager &bpm = BufferPoolManager::instance();
-  RC rc = bpm.create_file(file_name);
+  RC rc = bpm.create_file(file_name);// 通过 bufferpoolmanager 创建索引对应的文件
   if (rc != RC::SUCCESS) {
     LOG_WARN("Failed to create file. file name=%s, rc=%d:%s", file_name, rc, strrc(rc));
     return rc;
@@ -774,7 +774,7 @@ RC BplusTreeHandler::create(const char *file_name, AttrType attr_type, int attr_
   LOG_INFO("Successfully open index file %s.", file_name);
 
   Frame *header_frame;
-  rc = bp->allocate_page(&header_frame);
+  rc = bp->allocate_page(&header_frame);// 分配得到首个 frame，对应page 0
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to allocate header page for bplus tree. rc=%d:%s", rc, strrc(rc));
     bpm.close_file(file_name);
@@ -788,13 +788,15 @@ RC BplusTreeHandler::create(const char *file_name, AttrType attr_type, int attr_
     return RC::INTERNAL;
   }
 
+// 分别计算得到B+树内部节点和叶子节点所能容纳的记录数上限
+// 目前看内部节点和叶子节点只有HEADSIZE 不同
   if (internal_max_size < 0) {
-    internal_max_size = calc_internal_page_capacity(attr_length);
+    internal_max_size = calc_internal_page_capacity(attr_length);// B+ 树内部节点能容纳的记录数上限，根据列长度+RID长度+PageNum长度确定
   }
   if (leaf_max_size < 0) {
-    leaf_max_size = calc_leaf_page_capacity(attr_length);
+    leaf_max_size = calc_leaf_page_capacity(attr_length);// B+树叶子节点所能容纳的记录数上限
   }
-
+// page 0 记录一些元信息
   char *pdata = header_frame->data();
   IndexFileHeader *file_header = (IndexFileHeader *)pdata;
   file_header->attr_length = attr_length;
@@ -802,7 +804,7 @@ RC BplusTreeHandler::create(const char *file_name, AttrType attr_type, int attr_
   file_header->attr_type = attr_type;
   file_header->internal_max_size = internal_max_size;
   file_header->leaf_max_size = leaf_max_size;
-  file_header->root_page = BP_INVALID_PAGE_NUM;
+  file_header->root_page = BP_INVALID_PAGE_NUM;// 根节点对应的 page 暂时赋值为-1
 
   header_frame->mark_dirty();
 
@@ -810,10 +812,10 @@ RC BplusTreeHandler::create(const char *file_name, AttrType attr_type, int attr_
 
   memcpy(&file_header_, pdata, sizeof(file_header_));
   header_dirty_ = false;
-  bp->unpin_page(header_frame);
+  bp->unpin_page(header_frame);// allocate_page 时 page_count 被设为1，这里已经为该 frame/page 完成赋值，可以正常被替换出内存（写入磁盘）
 
-  mem_pool_item_ = new common::MemPoolItem(file_name);
-  if (mem_pool_item_->init(file_header->key_length) < 0) {
+  mem_pool_item_ = new common::MemPoolItem(file_name);// 为新创建的磁盘文件创建内存池
+  if (mem_pool_item_->init(file_header->key_length) < 0) {// 为内存池申请一个索引记录大小的内存空间
     LOG_WARN("Failed to init memory pool for index %s", file_name);
     close();
     return RC::NOMEM;
@@ -1103,10 +1105,14 @@ bool BplusTreeHandler::is_empty() const
   return file_header_.root_page == BP_INVALID_PAGE_NUM;
 }
 
+// lambda 函数在B+ 树中找到 >= key 的首个节点index
+// 根据节点index，找到B+ 树的节点pageNum
+// 将 pageNum 对应的 page 加载到内存
+// 并将内存中地址复制给 frame
 RC BplusTreeHandler::find_leaf(const char *key, Frame *&frame)
 {
   return find_leaf_internal(
-			    [&](InternalIndexNodeHandler &internal_node) {
+			    [&](InternalIndexNodeHandler &internal_node) {// lambda 函数，引用捕获，lambda 中可以使用 key 和 frame，lambda 函数返回值为 PageNum
 			      return internal_node.value_at(internal_node.lookup(key_comparator_, key));
 			    },
 			    frame);
@@ -1138,25 +1144,25 @@ RC BplusTreeHandler::find_leaf_internal(const std::function<PageNum(InternalInde
     return RC::EMPTY;
   }
 
-  RC rc = disk_buffer_pool_->get_this_page(file_header_.root_page, &frame);
+  RC rc = disk_buffer_pool_->get_this_page(file_header_.root_page, &frame);// 找到根节点的page
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to fetch root page. page id=%d, rc=%d:%s", file_header_.root_page, rc, strrc(rc));
     return rc;
   }
 
   IndexNode *node = (IndexNode *)frame->data();
-  while (false == node->is_leaf) {
-    InternalIndexNodeHandler internal_node(file_header_, frame);
-    PageNum page_num = child_page_getter(internal_node);
+  while (false == node->is_leaf) {// 若不是叶节点
+    InternalIndexNodeHandler internal_node(file_header_, frame);// 当前节点为内部节点
+    PageNum page_num = child_page_getter(internal_node);// 通过lambda 函数，得到 B+树中指定key 的插入位置
 
     disk_buffer_pool_->unpin_page(frame);
 
-    rc = disk_buffer_pool_->get_this_page(page_num, &frame);
+    rc = disk_buffer_pool_->get_this_page(page_num, &frame);// 获取孩子节点的page
     if (rc != RC::SUCCESS) {
       LOG_WARN("Failed to load page page_num:%d", page_num);
       return rc;
     }
-    node = (IndexNode *)frame->data();
+    node = (IndexNode *)frame->data();// 孩子节点作为当前节点
   }
 
   return RC::SUCCESS;
@@ -1357,7 +1363,8 @@ RC BplusTreeHandler::update_root_page_num()
   return rc;
 }
 
-
+// 新建B+树
+// 将 key,rid 存入根节点
 RC BplusTreeHandler::create_new_tree(const char *key, const RID *rid)
 {
   RC rc = RC::SUCCESS;
@@ -1368,16 +1375,16 @@ RC BplusTreeHandler::create_new_tree(const char *key, const RID *rid)
   }
 
   Frame *frame;
-  rc = disk_buffer_pool_->allocate_page(&frame);
+  rc = disk_buffer_pool_->allocate_page(&frame);// 在文件中分配一个页，并加载到bufferpool 中，frame 为 bufferpool 地址
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to allocate root page. rc=%d:%s", rc, strrc(rc));
     return rc;
   }
 
-  LeafIndexNodeHandler leaf_node(file_header_, frame);
+  LeafIndexNodeHandler leaf_node(file_header_, frame);// 构建一个叶子节点，作为B+树的根节点
   leaf_node.init_empty();
-  leaf_node.insert(0, key, (const char *)rid);
-  file_header_.root_page = frame->page_num();
+  leaf_node.insert(0, key, (const char *)rid);// 索引数据放入根节点中
+  file_header_.root_page = frame->page_num();// 补充根节点的page 号
   frame->mark_dirty();
   disk_buffer_pool_->unpin_page(frame);
 
@@ -1388,13 +1395,13 @@ RC BplusTreeHandler::create_new_tree(const char *key, const RID *rid)
 
 char *BplusTreeHandler::make_key(const char *user_key, const RID &rid)
 {
-  char *key = (char *)mem_pool_item_->alloc();
+  char *key = (char *)mem_pool_item_->alloc();// 申请内存空间
   if (key == nullptr) {
     LOG_WARN("Failed to alloc memory for key.");
     return nullptr;
   }
-  memcpy(key, user_key, file_header_.attr_length);
-  memcpy(key + file_header_.attr_length, &rid, sizeof(rid));
+  memcpy(key, user_key, file_header_.attr_length);// 将 user_key 存入申请到的内存空间
+  memcpy(key + file_header_.attr_length, &rid, sizeof(rid));// 将 rid 存入到 user_key 之后的内存空间
   return key;
 }
 
@@ -1403,6 +1410,7 @@ void BplusTreeHandler::free_key(char *key)
   mem_pool_item_->free(key);
 }
 
+// 向索引中插入(user_key, rid)的值
 RC BplusTreeHandler::insert_entry(const char *user_key, const RID *rid)
 {
   if (user_key == nullptr || rid == nullptr) {
@@ -1410,25 +1418,27 @@ RC BplusTreeHandler::insert_entry(const char *user_key, const RID *rid)
     return RC::INVALID_ARGUMENT;
   }
 
-  char *key = make_key(user_key, *rid);
+  char *key = make_key(user_key, *rid);// 将 user_key,rid 存入内存中，key 为内存地址
   if (key == nullptr) {
     LOG_WARN("Failed to alloc memory for key.");
     return RC::NOMEM;
   }
 
+// 尚不存在B+树
   if (is_empty()) {
-    return create_new_tree(key, rid);
+    return create_new_tree(key, rid);// key,rid 作为新创建B+树的根节点中一项
   }
 
+// 存在B+树
   Frame *frame;
-  RC rc = find_leaf(key, frame);
+  RC rc = find_leaf(key, frame);// frame 存放带插入的B+树节点地址
   if (rc != RC::SUCCESS) {
     LOG_WARN("Failed to find leaf %s. rc=%d:%s", rid->to_string().c_str(), rc, strrc(rc));
     mem_pool_item_->free(key);
     return rc;
   }
 
-  rc = insert_entry_into_leaf_node(frame, key, rid);
+  rc = insert_entry_into_leaf_node(frame, key, rid);// 向B+ 树的节点执行插入操作
   if (rc != RC::SUCCESS) {
     LOG_TRACE("Failed to insert into leaf of index, rid:%s", rid->to_string().c_str());
     disk_buffer_pool_->unpin_page(frame);
@@ -1437,7 +1447,7 @@ RC BplusTreeHandler::insert_entry(const char *user_key, const RID *rid)
     return rc;
   }
 
-  mem_pool_item_->free(key);
+  mem_pool_item_->free(key);// 释放内存池空间
   LOG_TRACE("insert entry success");
   // disk_buffer_pool_->check_all_pages_unpinned(file_id_);
   return RC::SUCCESS;

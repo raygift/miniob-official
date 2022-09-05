@@ -259,9 +259,10 @@ RC DiskBufferPool::allocate_page(Frame **frame)
       }
     }
   }
-
+// 文件的所有 page 都已经被分配
+// 扩展文件规模来增加新的空闲页
   Frame *allocated_frame = nullptr;
-  if ((rc = allocate_frame(&allocated_frame)) != RC::SUCCESS) {
+  if ((rc = allocate_frame(&allocated_frame)) != RC::SUCCESS) {// 从内存池获得一个可用 frame
     LOG_ERROR("Failed to allocate frame %s, due to no free page.", file_name_.c_str());
     return rc;
   }
@@ -442,29 +443,34 @@ RC DiskBufferPool::flush_all_pages()
   return RC::SUCCESS;
 }
 
+// 从内存池中获取一个可用的 frame
+// 若内存池所有 frame 都已被占用
+// 根据 lru 算法选出最久未被使用的frame
+// 若为脏页执行刷盘
+// 然后返回给调用方使用
 RC DiskBufferPool::allocate_frame(Frame **buffer)
 {
-  Frame *frame = frame_manager_.alloc();
+  Frame *frame = frame_manager_.alloc();// 从内存池中分配一个 frame
   if (frame != nullptr) {
     *buffer = frame;
     return RC::SUCCESS;
   }
 
-  frame = frame_manager_.begin_purge();
+  frame = frame_manager_.begin_purge();// 从内存池获取frame 失败，执行 purge 找到一个pin_count <0 的 frame
   if (frame == nullptr) {
     LOG_ERROR("All pages have been used and pinned.");
     return RC::NOMEM;
   }
 
-  if (frame->dirty_) {
-    RC rc = bp_manager_.flush_page(*frame);
+  if (frame->dirty_) {// frame 是脏页
+    RC rc = bp_manager_.flush_page(*frame);// 将脏页数据刷回磁盘
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to aclloc block due to failed to flush old block.");
       return rc;
     }
   }
 
-  frame_manager_.mark_modified(frame);
+  frame_manager_.mark_modified(frame);// 调整该 frame 在内存池中 lru 结构的位置，代表其最近被使用，推迟下次被换出的时间
 
   *buffer = frame;
   return RC::SUCCESS;
@@ -483,6 +489,9 @@ RC DiskBufferPool::check_page_num(PageNum page_num)
   return RC::SUCCESS;
 }
 
+// 通过 page_num 得到page 在文件中的偏移量
+// 使用 lseek+read 从文件中获取Page 结构体数据
+// 存入 Frame.page 中，数据包含 page_num和record数据
 RC DiskBufferPool::load_page(PageNum page_num, Frame *frame)
 {
   s64_t offset = ((s64_t)page_num) * sizeof(Page);
@@ -500,6 +509,8 @@ RC DiskBufferPool::load_page(PageNum page_num, Frame *frame)
   return RC::SUCCESS;
 }
 
+// 获取file_header_ 中记录的已分配的页面数量 allocated_pages
+// 通过 page_count 返回此数量
 RC DiskBufferPool::get_page_count(int *page_count)
 {
   *page_count = file_header_->allocated_pages;
@@ -528,7 +539,7 @@ BufferPoolManager::~BufferPoolManager()
 // 执行 create table 时创建一个对应的 bufferpool
 RC BufferPoolManager::create_file(const char *file_name)
 {
-  int fd = open(file_name, O_RDWR | O_CREAT | O_EXCL, S_IREAD | S_IWRITE);
+  int fd = open(file_name, O_RDWR | O_CREAT | O_EXCL, S_IREAD | S_IWRITE);// 创建文件
   if (fd < 0) {
     LOG_ERROR("Failed to create %s, due to %s.", file_name, strerror(errno));
     return RC::SCHEMA_DB_EXIST;
@@ -546,15 +557,15 @@ RC BufferPoolManager::create_file(const char *file_name)
   }
 
   Page page;
-  memset(&page, 0, sizeof(Page));
+  memset(&page, 0, sizeof(Page));// 新建 Page 结构体，并将值page_num 和char[] data初始化为空
 
-  BPFileHeader *file_header = (BPFileHeader *)page.data;
-  file_header->allocated_pages = 1;// 已分配的页数
-  file_header->page_count = 1;// 
+  BPFileHeader *file_header = (BPFileHeader *)page.data;// 将page.data 起始地址赋值给 BPFileHeader，用于操作第一个页面的数据（page 0 用来记录页面编号，页面数量，页面被分配情况等元信息）
+  file_header->allocated_pages = 1;// 已分配的页数，创建后page 0 就被分配为记录元信息
+  file_header->page_count = 1;// 页面数量，目前只有 page 0
 
   char *bitmap = file_header->bitmap;// bitmap 记录页占用与否
-  bitmap[0] |= 0x01;// 标记一个页已经被占用
-  if (lseek(fd, 0, SEEK_SET) == -1) {
+  bitmap[0] |= 0x01;// 标记page 0 页已经被占用
+  if (lseek(fd, 0, SEEK_SET) == -1) {// 使用 lseek 定位到文件起始位置
     LOG_ERROR("Failed to seek file %s to position 0, due to %s .", file_name, strerror(errno));
     close(fd);
     return RC::IOERR_SEEK;

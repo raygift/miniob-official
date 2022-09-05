@@ -476,15 +476,15 @@ RC ExecuteStage::do_create_table(SQLStageEvent *sql_event)
 RC ExecuteStage::do_create_index(SQLStageEvent *sql_event)
 {
   SessionEvent *session_event = sql_event->session_event();
-  Db *db = session_event->session()->get_current_db();
+  Db *db = session_event->session()->get_current_db();// 确定目标数据库
   const CreateIndex &create_index = sql_event->query()->sstr.create_index;
-  Table *table = db->find_table(create_index.relation_name);
+  Table *table = db->find_table(create_index.relation_name);// 确定目标表
   if (nullptr == table) {
     session_event->set_response("FAILURE\n");
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
 
-  RC rc = table->create_index(nullptr, create_index.index_name, create_index.attribute_name);
+  RC rc = table->create_index(nullptr, create_index.index_name, create_index.attribute_name);// 执行索引创建
   sql_event->session_event()->set_response(rc == RC::SUCCESS ? "SUCCESS\n" : "FAILURE\n");
   return rc;
 }

@@ -95,7 +95,7 @@ public:
 
 protected:
   char *get_record_data(SlotNum slot_num)
-  {
+  {// frame_->data() 得到 data 的起始地址，加上首个 Record 的偏移量，得到Record 所在的页，再根据 slot_num 得到Record 在页中的偏移量，得到Record 的地址
     return frame_->data() + page_header_->first_record_offset + (page_header_->record_size * slot_num);
   }
 
