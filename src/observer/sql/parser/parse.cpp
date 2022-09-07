@@ -52,6 +52,29 @@ void value_init_float(Value *value, float v)
   value->data = malloc(sizeof(v));
   memcpy(value->data, &v, sizeof(v));
 }
+
+// 检查年月日合法性
+bool check_date(int y, int m, int d)
+{
+    static int mon[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    bool leap = (y%400==0 || (y%100 && y%4==0));// 闰年的判断：400 的整数倍，或者不是100的整数倍但是4的整数倍
+    return y > 0
+        && (m > 0)&&(m <= 12)
+        && (d > 0)&&(d <= ((m==2 && leap)?1:0) + mon[m]);// 闰年 2月有29天
+}
+
+void value_init_date(Value *value, const char *v)
+{
+  value->type = DATES;// 指定 value 的类型枚举值
+  int y, m, d;
+  sscanf(v, "%d-%d-%d", &y, &m, &d);  // not check return value eq 3, lex guarantee // 从字符串中取到年月日对应的数值
+  bool b = check_date(y, m, d);// 检查年月日合法性，包括闰年的检查
+  if (!b)
+    return;
+  int dv = y * 10000 + m * 100 + d;// 按照 年*10000 + 月*100 + 日 得到的数值存储
+  value->data = malloc(sizeof(dv));  // TODO:check malloc failure
+  memcpy(value->data, &dv, sizeof(dv));
+}
 void value_init_string(Value *value, const char *v)
 {
   value->type = CHARS;

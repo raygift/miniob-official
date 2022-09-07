@@ -57,6 +57,9 @@ public:
     case CHARS: {
       return strncmp(v1, v2, attr_length_);
     }
+    case DATES:{
+      return *(int *)v1 - *(int *)v2;
+    }
     default:{
       LOG_ERROR("unknown attr type. %d", attr_type_);
       abort();
@@ -126,6 +129,12 @@ public:
 	str.push_back(v[i]);
       }
       return str;
+    }
+    case DATES: {
+      int value = *(int *)v;  // 将存储的 年*1000+月*100+日 强转为int
+      char buf[16] = {0};  // 19010203共8个数字，一个int 占用4个字节，因此共占用共32字节，每个char 占1个字节，
+      snprintf(buf, sizeof(buf), "%04d-%02d-%02d", value / 10000, (value % 10000) / 100, value % 100);
+      return buf;
     }
     default:{
       LOG_ERROR("unknown attr type. %d", attr_type_);
