@@ -313,7 +313,10 @@ value:
 		}
 	|DATE_STR{
 			$1 = substr($1,1,strlen($1)-2);// 跳过左右引号，只去引号包裹的字符串
-		value_init_date(&CONTEXT->values[CONTEXT->value_length++], $1);
+		int ret = value_init_date(&CONTEXT->values[CONTEXT->value_length++], $1);
+		if (ret){
+			return ret;
+		}
 	}
     |SSS {
 			$1 = substr($1,1,strlen($1)-2);

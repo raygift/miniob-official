@@ -63,17 +63,18 @@ bool check_date(int y, int m, int d)
         && (d > 0)&&(d <= ((m==2 && leap)?1:0) + mon[m]);// 闰年 2月有29天
 }
 
-void value_init_date(Value *value, const char *v)
+int value_init_date(Value *value, const char *v)
 {
   value->type = DATES;// 指定 value 的类型枚举值
   int y, m, d;
   sscanf(v, "%d-%d-%d", &y, &m, &d);  // not check return value eq 3, lex guarantee // 从字符串中取到年月日对应的数值
   bool b = check_date(y, m, d);// 检查年月日合法性，包括闰年的检查
   if (!b)
-    return;
+    return -1;
   int dv = y * 10000 + m * 100 + d;// 按照 年*10000 + 月*100 + 日 得到的数值存储
   value->data = malloc(sizeof(dv));  // TODO:check malloc failure
   memcpy(value->data, &dv, sizeof(dv));
+  return 0;
 }
 void value_init_string(Value *value, const char *v)
 {
@@ -420,8 +421,10 @@ extern "C" int sql_parse(const char *st, Query *sqls);
 
 RC parse(const char *st, Query *sqln)
 {
-  sql_parse(st, sqln);
-
+  int result = sql_parse(st, sqln);
+  if (result){
+    return SQL_SYNTAX;
+  }
   if (sqln->flag == SCF_ERROR)
     return SQL_SYNTAX;
   else
