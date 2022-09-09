@@ -153,14 +153,15 @@ bool check_date(int y, int m, int d)
 
 RC check_date_value(Value right_value){
   // 如果左侧属性的类型为 date，而右侧不符合 DATE_STR + check_date() 规则，则无法比较
-  int y, m, d;
-  if (sscanf((char *)right_value.data,"%d-%d-%d", &y, &m, &d)<0){
-    return INVALID_ARGUMENT;
-  }  // not check return value eq 3, lex guarantee // 从字符串中取到年月日对应的数值
-  bool b = check_date(y, m, d);  // 检查年月日合法性，包括闰年的检查
-  LOG_WARN("filter_stmt got date %d %d %d, check_date return %d", y, m, d, b);
 
-  if (!b) {
+  int y, m, d;
+  int int_value = *(int *)right_value.data;
+  y = int_value / 10000;
+  m = (int_value % 10000) / 100;
+  d = int_value % 100;
+  bool b = check_date(y, m, d);
+  if (!b)
+  {
     return INVALID_ARGUMENT;
   }
   return SUCCESS;
