@@ -124,5 +124,44 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
   filter_unit->set_right(right);
 
   // 检查两个类型是否能够比较
+  if (condition.left_is_attr && !condition.right_is_attr){
+    // 左表达式是列名，同时右表达式是值的情况，检查date 合法性
+    Table *table = nullptr;
+    const FieldMeta *field = nullptr;
+    rc = get_table_and_field(db, default_table, tables, condition.left_attr, table, field);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("cannot find attr");
+      return rc;
+    }
+    if (field->type() == DATES) {
+      LOG_WARN("need check comparable for date attribute vs date value");
+      rc = check_date_value(condition.right_value);
+    }
+  }
   return rc;
+}
+
+// 检查年月日合法性
+bool check_date(int y, int m, int d)
+{
+    static int mon[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    bool leap = (y%400==0 || (y%100 && y%4==0));// 闰年的判断：400 的整数倍，或者不是100的整数倍但是4的整数倍
+    return y > 0
+        && (m > 0)&&(m <= 12)
+        && (d > 0)&&(d <= ((m==2 && leap)?1:0) + mon[m]);// 闰年 2月有29天
+}
+
+RC check_date_value(Value right_value){
+  // 如果左侧属性的类型为 date，而右侧不符合 DATE_STR + check_date() 规则，则无法比较
+  int y, m, d;
+  if (sscanf((char *)right_value.data,"%d-%d-%d", &y, &m, &d)<0){
+    return INVALID_ARGUMENT;
+  }  // not check return value eq 3, lex guarantee // 从字符串中取到年月日对应的数值
+  bool b = check_date(y, m, d);  // 检查年月日合法性，包括闰年的检查
+  LOG_WARN("filter_stmt got date %d %d %d, check_date return %d", y, m, d, b);
+
+  if (!b) {
+    return INVALID_ARGUMENT;
+  }
+  return SUCCESS;
 }

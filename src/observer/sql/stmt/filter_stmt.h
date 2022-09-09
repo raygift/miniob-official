@@ -96,3 +96,5 @@ public:
 private:
   std::vector<FilterUnit *>  filter_units_; // 默认当前都是AND关系
 };
+RC check_date_value(Value right_value);
+bool check_date(int y, int m, int d);

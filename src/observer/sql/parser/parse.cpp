@@ -68,7 +68,9 @@ int value_init_date(Value *value, const char *v)
   value->type = DATES;// 指定 value 的类型枚举值
   int y, m, d;
   sscanf(v, "%d-%d-%d", &y, &m, &d);  // not check return value eq 3, lex guarantee // 从字符串中取到年月日对应的数值
-  bool b = check_date(y, m, d);// 检查年月日合法性，包括闰年的检查
+  bool b = check_date(y, m, d);       // 检查年月日合法性，包括闰年的检查
+  LOG_WARN("query date %d %d %d, check_date:%d", y, m, d, b);
+
   if (!b)
     return -1;
   int dv = y * 10000 + m * 100 + d;// 按照 年*10000 + 月*100 + 日 得到的数值存储
@@ -86,6 +88,34 @@ void value_destroy(Value *value)
   value->type = UNDEFINED;
   free(value->data);
   value->data = nullptr;
+}
+
+
+int condition_check_attr_value(RelAttr *left_attr, Value *right_value)
+{
+  if (left_attr != nullptr && right_value != nullptr) {
+    LOG_WARN("query date left_attr:%s, right_value:%s", left_attr->attribute_name, (char *)right_value->data);
+  }
+}
+
+int condition_check(Value *left_value, Value *right_value)
+{
+
+  if (left_value != nullptr && left_value->type == DATES) {
+    int y, m, d;
+    sscanf((char *)right_value->data,
+        "%d-%d-%d",
+        &y,
+        &m,
+        &d);  // not check return value eq 3, lex guarantee // 从字符串中取到年月日对应的数值
+    bool b = check_date(y, m, d);  // 检查年月日合法性，包括闰年的检查
+    LOG_WARN("query date %d %d %d, check_date:%d", y, m, d, b);
+
+    if (!b) {
+      return -1;
+    }
+  }
+  return 0;
 }
 
 void condition_init(Condition *condition, CompOp comp, int left_is_attr, RelAttr *left_attr, Value *left_value,
