@@ -473,7 +473,7 @@ void cartesian_product_dfs(std::ostream &os, std::string &pre_tuple_str, std::ve
       for (long unsigned int i = 0; i< cur_tuples.size();i++) {
         std::string tuple_str = cur_tuples[i];
         os << pre_tuple_str;
-        os << "|";
+        os << " | ";
         os << tuple_str;
         os << "\n";
       }
@@ -487,7 +487,7 @@ void cartesian_product_dfs(std::ostream &os, std::string &pre_tuple_str, std::ve
       std::string tuple_str = cur_tuples[i];
       // auto next_iter = table_iter++;
       if (pre_tuple_str.length() != 0) {
-        tuple_str = pre_tuple_str + "|" + tuple_str;
+        tuple_str = pre_tuple_str + " | " + tuple_str;
       }
       cartesian_product_dfs(os, tuple_str, tables_tuple, table_idx, end);
     }
