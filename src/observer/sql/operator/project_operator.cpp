@@ -66,7 +66,7 @@ void ProjectOperator::add_projection(bool isMultiTable, const Table *table, cons
   // 对多表查询来说，展示的alias 需要带表名字
   TupleCellSpec *spec = new TupleCellSpec(new FieldExpr(table, field_meta));
   if (isMultiTable) {
-    char *my_alias = (char *)malloc(200);
+    char *my_alias = (char *)calloc(1,sizeof(table->name())+sizeof(table->name())+2);
     strcat(my_alias, table->name());
     const char *dot = ".";
     strcat(my_alias, dot);
