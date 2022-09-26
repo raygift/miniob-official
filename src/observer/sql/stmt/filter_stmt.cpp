@@ -27,6 +27,8 @@ FilterStmt::~FilterStmt()
   filter_units_.clear();
 }
 
+// 为 default_table 创建所有 conditions 对应的 filter_unit
+// 若 default_table 不包含任何 conditions 指示的列，则创建失败
 RC FilterStmt::create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
 		      const Condition *conditions, int condition_num,
 		      FilterStmt *&stmt)

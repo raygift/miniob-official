@@ -67,11 +67,11 @@ bool RecordPageIterator::has_next()
 
 RC RecordPageIterator::next(Record &record)
 {
-  record.set_rid(page_num_, next_slot_num_);
-  record.set_data(record_page_handler_->get_record_data(record.rid().slot_num));
+  record.set_rid(page_num_, next_slot_num_);// 根据 page 编号，以及遍历到的 slot 编号，为 record 赋值
+  record.set_data(record_page_handler_->get_record_data(record.rid().slot_num));// 根据遍历到的 slot 编号，获取 record 的数据，并赋值给 record
 
-  if (next_slot_num_ >= 0) {
-    next_slot_num_ = bitmap_.next_setted_bit(next_slot_num_ + 1);
+  if (next_slot_num_ >= 0) {// 若 next_slot_num_ 不为 -1
+    next_slot_num_ = bitmap_.next_setted_bit(next_slot_num_ + 1);// 更新 next_slot_num_ ，更新后的值是从 next_slot_num_ +1 开始的下一个 setted 的 slot 的编号
   }
   return record.rid().slot_num != -1 ? RC::SUCCESS : RC::RECORD_EOF;
 }
@@ -416,22 +416,24 @@ RC RecordFileScanner::fetch_next_record()
   next_record_.rid().slot_num = -1;
   return RC::RECORD_EOF;
 }
-
+// 读取page 中的下一个 record
+// 会经过 condition_filter_ 的过滤
+// 若
 RC RecordFileScanner::fetch_next_record_in_page()
 {
   RC rc = RC::SUCCESS;
-  while (record_page_iterator_.has_next()) {
+  while (record_page_iterator_.has_next()) {// next_slot_num_ 不是 -1
     rc = record_page_iterator_.next(next_record_);
     if (rc != RC::SUCCESS) {
       return rc;
     }
 
-    if (condition_filter_ == nullptr || condition_filter_->filter(next_record_)) {
+    if (condition_filter_ == nullptr || condition_filter_->filter(next_record_)) {// 没有过滤条件，或者获取到的 next_record_ 满足条件，则返回；否则继续 while 循环获取下一个 record
       return rc;
     }
   }
 
-  next_record_.rid().slot_num = -1;
+  next_record_.rid().slot_num = -1;// slot_num 设为 -1 ，用于指示已经遍历完当前 page 的所有 Record
   return RC::RECORD_EOF;
 }
 

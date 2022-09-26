@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/project_operator.h"
 #include "storage/common/record.h"
 #include "storage/common/table.h"
+typedef std::string STRING; 
 
 RC ProjectOperator::open()
 {
@@ -56,6 +57,25 @@ void ProjectOperator::add_projection(const Table *table, const FieldMeta *field_
   // 对多表查询来说，展示的alias 需要带表名字
   TupleCellSpec *spec = new TupleCellSpec(new FieldExpr(table, field_meta));
   spec->set_alias(field_meta->name());
+  tuple_.add_cell_spec(spec);
+}
+
+void ProjectOperator::add_projection(bool isMultiTable, const Table *table, const FieldMeta *field_meta)
+{
+  // 对单表来说，展示的(alias) 字段总是字段名称，
+  // 对多表查询来说，展示的alias 需要带表名字
+  TupleCellSpec *spec = new TupleCellSpec(new FieldExpr(table, field_meta));
+  if (isMultiTable) {
+    char *my_alias = (char *)malloc(200);
+    strcat(my_alias, table->name());
+    const char *dot = ".";
+    strcat(my_alias, dot);
+    strcat(my_alias, field_meta->name());
+    spec->set_alias(my_alias);
+
+  } else {
+    spec->set_alias(field_meta->name());
+  }
   tuple_.add_cell_spec(spec);
 }
 

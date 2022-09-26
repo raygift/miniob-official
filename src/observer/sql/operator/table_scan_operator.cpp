@@ -18,9 +18,9 @@ See the Mulan PSL v2 for more details. */
 
 RC TableScanOperator::open()
 {
-  RC rc = table_->get_record_scanner(record_scanner_);
+  RC rc = table_->get_record_scanner(record_scanner_);// 获取扫描 表所对应 bufferpool 的记录扫描器
   if (rc == RC::SUCCESS) {
-    tuple_.set_schema(table_, table_->table_meta().field_metas());
+    tuple_.set_schema(table_, table_->table_meta().field_metas());// table_ 对象和 列元信息 组成 TupleCellSpec 保存到 tuple_ 中
   }
   return rc;
 }

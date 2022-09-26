@@ -15,7 +15,7 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include <vector>
-
+#include <unordered_map>
 #include "rc.h"
 #include "sql/stmt/stmt.h"
 #include "storage/common/field.h"
@@ -40,10 +40,13 @@ public:
   const std::vector<Table *> &tables() const { return tables_; }
   const std::vector<Field> &query_fields() const { return query_fields_; }
   FilterStmt *filter_stmt() const { return filter_stmt_; }
+  std::unordered_map<std::string, FilterStmt *> filter_stmts() const {return table_filter_stmt_; }
 
 private:
   std::vector<Field> query_fields_;
   std::vector<Table *> tables_;
   FilterStmt *filter_stmt_ = nullptr;
+  std::unordered_map<std::string, FilterStmt *> table_filter_stmt_;
 };
 
+RC create_table_filter(Db *db, Table *table, std::unordered_map<std::string, Table *> *tables, const Condition *conditions, int condition_num, std::unordered_map<std::string, FilterStmt *> *&table_filter);

@@ -151,13 +151,13 @@ void SessionStage::handle_request(StageEvent *event)
     return;
   }
 
-  std::string sql = sev->get_request_buf();
+  std::string sql = sev->get_request_buf();// 获得client 输入的 sql 语句文本
   if (common::is_blank(sql.c_str())) {
     sev->done_immediate();
     return;
   }
-
-  CompletionCallback *cb = new (std::nothrow) CompletionCallback(this, nullptr);
+// 为当前 stage 创建一个 callback
+  CompletionCallback *cb = new (std::nothrow) CompletionCallback(this, nullptr);//nothrow new 可以在分配内存失败时返回空指针，而非抛出异常
   if (cb == nullptr) {
     LOG_ERROR("Failed to new callback for SessionEvent");
 
@@ -167,6 +167,6 @@ void SessionStage::handle_request(StageEvent *event)
 
   sev->push_callback(cb);
 
-  SQLStageEvent *sql_event = new SQLStageEvent(sev, sql);
+  SQLStageEvent *sql_event = new SQLStageEvent(sev, sql);// 使用 sql 语句文本创建 SQLStageEvent 实例
   plan_cache_stage_->handle_event(sql_event);
 }
