@@ -120,6 +120,55 @@ RC Table::create(
   return rc;
 }
 
+RC Table::destroy(const char *path)
+{
+  RC rc = sync();  // 将缓存刷盘
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  // bug: drop table 之后执行 create table new_table; insert into new_table values(); 报错
+  // fixed: 原因是 drop table 删除Table 对应文件之前未执行 purge page，导致内存有脏数据
+  // 之后对new_table 执行insert 时，尝试执行 flush_page，那时frame 记录的 file_desc_ 已经被置为 -1
+  // 导致无法完成 frame 刷盘动作
+  data_buffer_pool_->purge_all_pages();
+  std::string meta_path =
+      table_meta_file(path, name());  // 根据 db 存储目录 + table 元数据文件名，得到 table 元数据的存储目录
+  if (unlink(meta_path.c_str()) != 0) {
+    LOG_ERROR("Failed to remove meta file=%s, errno=%d", meta_path.c_str(), errno);
+    return RC::GENERIC_ERROR;
+  }
+
+  std::string data_file = table_data_file(
+      path, table_meta_.name());  // 使用 table_data_file 直接得到表数据文件的存储目录： {db 存储目录}/{表名}.data
+
+  // std::string data_file =
+  //     std::string(path) + "/" + name() + TABLE_DATA_SUFFIX;  // 拼接得到表数据文件的存储目录： {db
+  //     存储目录}/{表名}.data
+  if (unlink(data_file.c_str()) != 0) {
+    LOG_ERROR("Failed to remove data file=%s, errno=%d", data_file.c_str(), errno);
+    return RC::GENERIC_ERROR;
+  }
+
+  // 删除text字段（若有）的数据文件
+  // std::string text_data_file = std::string(path)+"/"+name()+TABLE_TEXT_DATA_SUFFIX;
+
+  // 删除 index 文件
+  const int index_num = table_meta_.index_num();
+  for (int i = 0; i < index_num; i++) {
+    // B+树节点关闭
+    ((BplusTreeIndex *)indexes_[i])->close();            // 删除 B+树索引 indexes_ 中记录
+    const IndexMeta *index_meta = table_meta_.index(i);  // 获取 index 对应的列明，组成index 文件的文件名
+    std::string index_file = table_index_file(path, name(), index_meta->name());
+    if (unlink(index_file.c_str()) != 0) {
+      LOG_ERROR("Failed to remove index file=%s, errno=%d", index_file, errno);
+      return RC::GENERIC_ERROR;
+    }
+    // index 文件删除
+  }
+
+  return RC::SUCCESS;
+}
+
 RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_manager)
 {
   // 加载元数据文件

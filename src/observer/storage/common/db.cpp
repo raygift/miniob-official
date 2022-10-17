@@ -84,6 +84,30 @@ RC Db::create_table(const char *table_name, int attribute_count, const AttrInfo 
   return RC::SUCCESS;
 }
 
+RC Db::drop_table(const char *table_name)
+{
+  RC rc = RC::SUCCESS;
+  // check table_name
+  auto t =
+      opened_tables_.find(table_name);  // 这里 t 的类型使用auto 让编译器自动推断；若使用 Table* 会报错，猜测无序容器
+                                        // opened_tables_.find() 返回的不只是找到的对象，而是包含了目标对象的迭代器
+  if (t == opened_tables_.end()) {
+    LOG_WARN("%s not exist.", table_name);
+    return RC::SCHEMA_TABLE_NOT_EXIST;
+  }
+  //
+  Table *table = t->second;
+  rc = table->destroy(path_.c_str());  // 调用Table::destroy 销毁自己
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+
+  opened_tables_.erase(t);  // 从表opend_tables_ 中删除被drop 的表
+  delete table;
+  LOG_INFO("Drop table success. table name=%s", table_name);
+  return rc;
+}
+
 Table *Db::find_table(const char *table_name) const
 {
   std::unordered_map<std::string, Table *>::const_iterator iter = opened_tables_.find(table_name);

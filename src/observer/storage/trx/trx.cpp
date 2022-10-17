@@ -41,6 +41,8 @@ void Trx::set_trx_id(int32_t id)
 
 void Trx::next_current_id()
 {
+  // fixed: 事务编号自增之前，首先完成当前事务的提交
+  Trx::commit();
   Trx::next_trx_id();
   trx_id_ = trx_id;
 }

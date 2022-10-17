@@ -53,7 +53,7 @@ RC BPFrameManager::cleanup()
   frames_.destroy();
   return RC::SUCCESS;
 }
-
+// 找到并返回可以被 purge 的 frame
 Frame *BPFrameManager::begin_purge()
 {
   Frame *frame_can_purge = nullptr;
@@ -64,7 +64,7 @@ Frame *BPFrameManager::begin_purge()
     }
     return true; // true continue to look up
   };
-  frames_.foreach_reverse(purge_finder);
+  frames_.foreach_reverse(purge_finder);// 从 frames_ 尾部向前查找满足条件的 frame
   return frame_can_purge;
 }
 
@@ -110,8 +110,8 @@ RC BPFrameManager::free(int file_desc, PageNum page_num, Frame *frame)
     return RC::GENERIC_ERROR;
   }
 
-  frames_.remove(frame_id);
-  allocator_.free(frame);
+  frames_.remove(frame_id);// 从 frames 中移除该frame 对应的 frame_id
+  allocator_.free(frame);// 将该 frame 从内存池 used 组中删除，并放入 frees 组中
   return RC::SUCCESS;
 }
 
@@ -507,27 +507,29 @@ RC DiskBufferPool::recover_page(PageNum page_num)
 RC DiskBufferPool::allocate_frame(PageNum page_num, Frame **buffer)
 {
   while (true) {
-    Frame *frame = frame_manager_.alloc(file_desc_, page_num);
+    Frame *frame = frame_manager_.alloc(file_desc_, page_num);// 尝试从内存池中分配一个 frame
     if (frame != nullptr) {
       *buffer = frame;
       return RC::SUCCESS;
     }
 
-    frame = frame_manager_.begin_purge();
+    frame = frame_manager_.begin_purge();// 从内存池获取frame 失败，找到一个可以被执行 purge 的 frame
     if (frame == nullptr) {
       LOG_ERROR("All pages have been used and pinned.");
       return RC::NOMEM;
     }
 
-    if (frame->dirty_) {
-      RC rc = bp_manager_.flush_page(*frame);
+    if (frame->dirty_) {// 待 purge 的 frame 为脏页
+      RC rc = bp_manager_.flush_page(*frame);// 执行脏页刷盘
       if (rc != RC::SUCCESS) {
         LOG_ERROR("Failed to aclloc block due to failed to flush old block.");
         return rc;
       }
     }
-
+    // 将被purge 的 frame 释放从而可以再次被用于分配
+    // 具体是从内存池 used 移动到 frees 来实现
     frame_manager_.free(frame->file_desc(), frame->page_num(), frame);
+    // 执行过 purge 之后,下次循环便可以找到可分配的 frame                                                               
   }
   return RC::INTERNAL;
 }
