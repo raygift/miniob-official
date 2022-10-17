@@ -153,7 +153,13 @@ RC DefaultHandler::create_table(
 
 RC DefaultHandler::drop_table(const char *dbname, const char *relation_name)
 {
-  return RC::GENERIC_ERROR;
+  Db *db = find_db(dbname);
+  Table *table = find_table(dbname, relation_name);
+  if (nullptr == table) {
+    return RC::SCHEMA_TABLE_NOT_EXIST;
+  }
+  return db->drop_table(relation_name);
+  // return RC::GENERIC_ERROR;
 }
 
 RC DefaultHandler::create_index(
