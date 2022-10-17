@@ -141,7 +141,7 @@ void ExecuteStage::handle_request(common::StageEvent *event)
         if (select_stmt->tables().size() == 1) {
           do_select(sql_event);
         }else{
-          do_select_multi(sql_event);
+          do_select_multi2(sql_event);
         }
       } break;
       case StmtType::INSERT: {
@@ -602,6 +602,164 @@ void cartesian_product_dfs(std::ostream &os, std::string &pre_tuple_str, std::ve
     std::string empty_pre = "";
     cartesian_product_dfs(c_p_os, empty_pre, table_tuples, &table_i, table_tuples.size());
 
+
+// close()
+
+
+    // 将最终结果返回
+    session_event->set_response(c_p_os.str());  // 将结果返回
+    return rc;
+  }
+
+
+void c_p_dfs(std::ostream &os, std::vector<Tuple*> pre_tuples, std::vector<std::vector<Tuple*>> &tables_tuples,
+              long unsigned int * table_idx, long unsigned int end)
+{
+  if (*table_idx >= end){
+    return;
+  }
+  long unsigned int table_idx_next = (*table_idx)+1;
+  if (table_idx_next >= end) {// 下一个元素是end，说明当前是最后一个存有值的元素
+    std::vector<Tuple*> cur_tuples = tables_tuples[*table_idx];
+    if (pre_tuples.size() == 0) {// 不需要与前序tuple 联结
+      // 遍历当前 table
+      for (long unsigned int i = 0; i< cur_tuples.size();i++) {
+        tuple_to_string(os, *cur_tuples[i]);  // 根据将当前tuple 得到字符串，并加入到输出流
+      }
+    }
+    else {// 需要与前序tuple 联结
+    // 遍历当前表的所有tuple
+      for (long unsigned int i = 0; i< cur_tuples.size();i++) {
+        // 将当前表的一个tuple 与所有前序tuples 完成联结
+        for(long unsigned int j =0;j < pre_tuples.size();j++){
+          // TODO(zhangpc) 这里要完成tuple 联结后的条件过滤，
+          // 过滤条件存放在 sql_event 中
+          
+          // 联结后的tuples 满足筛选条件
+          // 将其转换为string 作为结果输出
+          tuple_to_string(os, *pre_tuples[j]);
+          os<< " | ";
+        }
+        tuple_to_string(os, *cur_tuples[i]);  // 根据将当前tuple 得到字符串，并加入到输出流
+        os << "\n";// 完成一条最终tuple 的输出，最后输出一个换行符
+      }
+    }
+  } else {  // 不是最后一个 table，遍历当前table，table 的每个 tuple 与前序字符串拼接，并递归的完成单个 tuple 与下一张表的所有 tuple 的拼接
+            //
+    std::vector<Tuple*> cur_tuples = tables_tuples[*table_idx];
+    (*table_idx)++;
+    for (long unsigned int i = 0; i< cur_tuples.size();i++) {
+      pre_tuples.push_back(cur_tuples[i]);// 保存当前 tuple，传入后续
+      c_p_dfs(os, pre_tuples, tables_tuples, table_idx, end);
+    }
+    (*table_idx)--;
+  }
+}
+
+ // 支持多表查询2
+  RC ExecuteStage::do_select_multi2(SQLStageEvent * sql_event)
+  {
+    SelectStmt *select_stmt = (SelectStmt *)(sql_event->stmt());
+    SessionEvent *session_event = sql_event->session_event();
+    RC rc = RC::SUCCESS;
+
+    if (select_stmt->tables().size() == 1) {
+      LOG_WARN("select  1 tables");
+      rc = RC::UNIMPLENMENT;
+      return rc;
+    }
+    // TODO(zhangpc) 多表查询时是否使用索引，如有多个索引如何选择？
+
+    // std::unordered_map<char *, std::vector<std::string>> table_tuples;  // 记录表对象及存储其tuple 的vector 的对应关系
+    std::vector<std::vector<Tuple*>> tables_tuples;
+
+    // 对所有表执行 scan_record 操作，保存每一张表的扫描结果与表名对应关系 table_name : records
+    int nSize = (int)select_stmt->tables().size();
+    for (int i = nSize -1 ; i >=0; i--) {
+      Table *table = select_stmt->tables()[i];
+      // 构造表扫描器
+
+      Operator *scan_oper = new TableScanOperator(table);
+
+      DEFER([&]() { delete scan_oper; });
+
+      FilterStmt *my_filter_stmt = nullptr;
+
+      // 挑选出 where 语句中适用于本表的查询条件
+      std::unordered_map<std::string, FilterStmt *> table_filter_stmt = select_stmt->filter_stmts();
+
+      std::string table_name =  table->name();
+      auto iter = table_filter_stmt.find(table_name);  // 通过 table_name 找到保存在 select_stmt->table_filter_stmt_ 中的 filter_stmt
+      if (iter != table_filter_stmt.end()) {  // 若不存在 table_name 对应的 filter_stmt，跳过
+        my_filter_stmt = iter->second;        // 记录table_name 对应的 filter_stmt
+      }
+
+// 创建谓词操作器，    
+// 对得到的乘积结果执行过滤
+      PredicateOperator pred_oper(my_filter_stmt);  // 若不存在 table_name 对应的 filter_stmt，此处传入参数为空
+      pred_oper.add_child(scan_oper);
+
+      ProjectOperator project_oper;
+      project_oper.add_child(&pred_oper);
+      for (const Field &field : select_stmt->query_fields()) {
+        const char *filed_belong = field.table()->name();
+        if (strcmp(filed_belong, table->name()) == 0) {
+          project_oper.add_projection(true, field.table(), field.meta());  // 将所有 select 要查询的列名称 记录在 ProjectOperator 的 speces_ 容器中
+        }
+      }
+
+      //  vector 保存每张表的扫描结果
+      std::vector<Tuple*> tuples;
+
+      rc = project_oper.open();  // project_oper.open() -> pred_oper.open() -> scan_oper.open()
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("failed to open operator");
+        return rc;
+      }
+
+      // 扫描表
+      while ((rc = project_oper.next()) == RC::SUCCESS) {
+        
+        Tuple *tuple = project_oper.current_tuple();  // 获取当前元组
+
+        if (nullptr == tuple) {
+          rc = RC::INTERNAL;
+          LOG_WARN("failed to get current record. rc=%s", strrc(rc));
+          break;
+        }
+        tuples.push_back(tuple);
+      }
+      // table_tuples.insert(std::pair<char *, std::vector<std::string>>(table_name, tuple_data));
+      tables_tuples.push_back(tuples);
+
+      // project_oper.close();
+
+    }
+    // 至此，所有table 中的符合条件的行都已经被收集到 table_tuples 中
+
+    // 自定义投影操作器，下面会针对 vector<string> 根据 query 的f ields 进行投影
+    ProjectOperator project_str_oper;
+    // 记录每所有表的所有投影列，由于 query_fields 是根据 from 后表的逆序存储表的投影的
+    // 因此需要反向遍历 tables，找到from 后多表的正向顺序，并得到其投影field
+    int tSize = (int)select_stmt->tables().size();
+    for (int i = tSize - 1; i >= 0; i--) {
+      Table *t = select_stmt->tables()[i];
+
+      for (const Field &field : select_stmt->query_fields()) {
+        if (strcmp(field.table()->name(), t->name()) == 0) {
+          project_str_oper.add_projection(true, field.table(), field.meta());  // 将所有 select 要查询的列名称 记录在 ProjectOperator 的 speces_ 容器中
+        }
+      }
+    }
+
+    // 对所有组结果执行笛卡尔积操作，深度优先遍历搜索或者回溯算法
+    std::stringstream c_p_os;
+
+    print_tuple_header(c_p_os, project_str_oper);// 打印select 要查询的列记录的列名
+    // 遍历所有表的所有行，过程中执行拼接和投影操作
+    long unsigned int table_i = 0;
+    std::vector<Tuple*> empty_pre;
+    c_p_dfs(c_p_os, empty_pre, tables_tuples, &table_i, tables_tuples.size());
 
 // close()
 

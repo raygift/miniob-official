@@ -189,7 +189,7 @@ RC create_table_filter(Db *db, Table *table, std::unordered_map<std::string, Tab
     for (int i = nSize -1 ; i >=0; i--){
     const Condition condition = conditions[i];
 
-    if (!condition.left_is_attr) {  // where 条件左侧为 列名时才可以判断
+    if (!condition.left_is_attr&& !condition.right_is_attr) {  // where 条件左侧为 列名时才可以判断
       continue;
     }
     // 跳过 condition 中不是针对当前表的查询条件
@@ -197,20 +197,20 @@ RC create_table_filter(Db *db, Table *table, std::unordered_map<std::string, Tab
         (condition.right_is_attr && condition.right_attr.relation_name == nullptr)) {
       continue;
     }
-    if (condition.left_is_attr && strcmp(condition.left_attr.relation_name, table->name()) != 0) {
-      continue;
-      ;
-    }
-    if (condition.right_is_attr && strcmp(condition.right_attr.relation_name, table->name()) != 0) {
+    if (!(condition.left_is_attr && strcmp(condition.left_attr.relation_name, table->name()) == 0)
+            &&!(condition.right_is_attr && strcmp(condition.right_attr.relation_name, table->name()) == 0)) {
       continue;
     }
 
     // 当前condition 使用的 列名
-    const RelAttr attr = condition.left_attr;
+    const RelAttr left_attr = condition.left_attr;
     // 检查当前 table 是否有此列
-    const FieldMeta *field = table->table_meta().field(attr.attribute_name);// gug: 不能通过where 查找条件去表中寻找列，因为多个表可能存在相同的列名
-    if (nullptr == field) {
-      continue;  // table 不包含该列，跳过
+    const FieldMeta *left_field = table->table_meta().field(left_attr.attribute_name);  // bug: 不能通过where 查找条件去表中寻找列，因为多个表可能存在相同的列名
+
+    const RelAttr right_attr = condition.right_attr;
+    const FieldMeta *right_field = table->table_meta().field(right_attr.attribute_name);
+    if (nullptr == left_field && nullptr == right_field) {  // 查询条件左右的列名都未在当前 table 出现
+      continue;                                             // table 不需要使用此查询条件，跳过
     }
 
     FilterStmt *filter_stmt = nullptr;

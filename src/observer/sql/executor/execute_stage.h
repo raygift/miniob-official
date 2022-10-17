@@ -49,6 +49,7 @@ protected:
   RC do_delete(SQLStageEvent *sql_event);
   RC do_update(SQLStageEvent *sql_event);
   RC do_select_multi(SQLStageEvent *sql_event);
+  RC do_select_multi2(SQLStageEvent *sql_event);
 
 protected:
 private:
