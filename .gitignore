@@ -17,3 +17,9 @@ GRTAGS
 GPATH
 GTAGS
 #*#
+
+build.sh
+auto_client.sh
+observer.log*
+*.data
+*.table
