@@ -12,6 +12,8 @@ See the Mulan PSL v2 for more details. */
 // Created by Wangyunlai on 2022/5/22.
 //
 
+#include <cmath>
+
 #include "sql/stmt/insert_stmt.h"
 #include "common/log/log.h"
 #include "storage/common/db.h"
@@ -46,6 +48,7 @@ RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
     LOG_WARN("schema mismatch. value num=%d, field num in schema=%d", value_num, field_num);
     return RC::SCHEMA_FIELD_MISSING;
   }
+  Value new_values[MAX_NUM];
 
   // check fields type
   const int sys_field_num = table_meta.sys_field_num();
@@ -53,14 +56,40 @@ RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
     const FieldMeta *field_meta = table_meta.field(i + sys_field_num);
     const AttrType field_type = field_meta->type();
     const AttrType value_type = values[i].type;
-    if (field_type != value_type) { // TODO try to convert the value type to field type
+
+    Value new_val;
+    if (field_type == value_type) {
+      continue;
+    } else if (value_type == INTS && field_type == FLOATS) {
+      float new_data = *(int*)values[i].data;
+      value_init_float(&new_val, new_data);
+    } else if (value_type == FLOATS && field_type == INTS) {
+      int new_data = std::round(*(float *)values[i].data);
+      value_init_integer(&new_val, new_data);
+    } else if (value_type == CHARS && field_type == INTS) {
+      int new_data = std::atoi((char *)values[i].data);
+      value_init_integer(&new_val, new_data);
+    } else if (value_type == INTS && field_type == CHARS) {
+      char new_data[sizeof(int)];
+      sprintf(new_data, "%d", *(int *)values[i].data);
+      value_init_string(&new_val, new_data);
+    } else if (value_type == CHARS && field_type == FLOATS) {
+      float new_data = std::atof((char *)values[i].data);
+      value_init_float(&new_val, new_data);
+    } else if (value_type == FLOATS && field_type == CHARS) {
+      char new_data[sizeof(float)];
+      sprintf(new_data, "%f", *(float *)values[i].data);
+      value_init_string(&new_val, new_data);
+    } else {
       LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d", 
                table_name, field_meta->name(), field_type, value_type);
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
+
+    new_values[i] = new_val;
   }
 
   // everything alright
-  stmt = new InsertStmt(table, values, value_num);
+  stmt = new InsertStmt(table, new_values, value_num);
   return RC::SUCCESS;
 }
