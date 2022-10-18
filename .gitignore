@@ -21,6 +21,8 @@ GTAGS
 miniob/*
 build.sh
 auto_client.sh
+start.sh
+log.sh
 observer.log*
 *.data
 *.table
