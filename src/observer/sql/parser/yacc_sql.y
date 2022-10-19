@@ -96,6 +96,11 @@ ParserContext *get_context(yyscan_t scanner)
         LOAD
         DATA
         INFILE
+		MAX
+		MIN
+		COUNT
+		AVG
+		SUM
         EQ
         LT
         GT
