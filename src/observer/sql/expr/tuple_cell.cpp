@@ -62,12 +62,12 @@ int TupleCell::compare(const TupleCell &other) const
   } else if (this->attr_type_ == CHARS && other.attr_type_ == INTS) { // CHARS, INTS
     float this_data = std::atof(data_);
     float other_data = *(int *)other.data_;
-    LOG_WARN("compare chars(%s, %f) <=> ints(%d, %f)", data_, this_data, other.data_, other_data);
+    // LOG_WARN("compare chars(%s, %f) <=> ints(%d, %f)", data_, this_data, other.data_, other_data);
     return compare_float(&this_data, &other_data);
   } else if (this->attr_type_ == INTS && other.attr_type_ == CHARS) { // INTS, CHARS
     float this_data = *(int *)data_;
     float other_data = std::atof(other.data_);
-    LOG_WARN("compare ints(%d, %f) <=> chars(%s, %f)", data_, this_data, other.data_, other_data);
+    // LOG_WARN("compare ints(%d, %f) <=> chars(%s, %f)", data_, this_data, other.data_, other_data);
     return compare_float(&this_data, &other_data);
   } else if (this->attr_type_ == CHARS && other.attr_type_ == FLOATS) { // CHARS, INTS
     float this_data = std::atof(data_);
