@@ -58,7 +58,7 @@ class log:
 
 
 with fileinput.input() as f:
-    meta_len = 50  # length of meta
+    meta_len = 45  # length of meta
     datetime_interval = 10  # every interval time print data&time
 
     c = colors()
@@ -67,7 +67,7 @@ with fileinput.input() as f:
     log_date_color = c.BYellow
     log_time_color = c.BYellow
     log_level_info_color = c.BGreen
-    log_level_warn_color = c.BYellow
+    log_level_warn_color = c.BRed
     log_level_other_color = c.BRed
     log_file_color = c.Blue
     log_content_color = c.Black
@@ -100,8 +100,8 @@ with fileinput.input() as f:
             pass
             lc += 1
         else:
-            print(log_date_color + l.date + ' ' +
-                  log_time_color + l.time + c.Null)
+            print(log_date_color + '======' + l.date + ' ' +
+                  log_time_color + l.time + "======" + c.Null)
             lc = 0
 
         wc = 0
@@ -122,6 +122,12 @@ with fileinput.input() as f:
         for _ in range(0, meta_len - wc):
             print(" ", end='')
 
-        print(log_content_color + l.content + c.Null, end='')
-
+        if l.content == 'Observer start success':
+            print(log_level_info_color + l.content + c.Null, end='')
+        elif l.content == 'Shutdown Cleanly!':
+            print(log_level_warn_color + l.content + c.Null, end='')
+        elif l.level == 'WARNNING':
+            print(log_level_warn_color + l.content + c.Null, end='')
+        else:
+            print(log_content_color + l.content + c.Null, end='')
         last_log = l
