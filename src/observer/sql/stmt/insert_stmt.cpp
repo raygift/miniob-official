@@ -59,7 +59,7 @@ RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
 
     Value new_val;
     if (field_type == value_type) {
-      continue;
+      new_val = values[i];
     } else if (value_type == INTS && field_type == FLOATS) {
       float new_data = *(int*)values[i].data;
       value_init_float(&new_val, new_data);
