@@ -145,6 +145,7 @@ void ExecuteStage::handle_request(common::StageEvent *event)
     } break;
     case StmtType::UPDATE: {
       //do_update((UpdateStmt *)stmt, session_event);
+      do_update(sql_event);
     } break;
     case StmtType::DELETE: {
       do_delete(sql_event);
@@ -498,6 +499,32 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     rc = project_oper.close();
   }
   session_event->set_response(ss.str());
+  return rc;
+}
+
+RC ExecuteStage::do_update(SQLStageEvent *sql_event)
+{
+  Stmt *stmt = sql_event->stmt();
+  SessionEvent *session_event = sql_event->session_event();
+
+  if (stmt == nullptr) {
+    LOG_WARN("cannot find statement");
+    return RC::GENERIC_ERROR;
+  }
+
+  UpdateStmt *update_stmt = (UpdateStmt *)stmt;
+
+  const Updates &updates = sql_event->query()->sstr.update;
+
+  Table *table = update_stmt->table();
+  int *updated_rows = 0;
+  RC rc = table->update_record(nullptr, updates.attribute_name, 
+                  &(updates.value), updates.condition_num, updates.conditions, updated_rows);
+  if (rc == RC::SUCCESS) {
+    session_event->set_response("SUCCESS\n");
+  } else {
+    session_event->set_response("FAILURE\n");
+  }
   return rc;
 }
 
