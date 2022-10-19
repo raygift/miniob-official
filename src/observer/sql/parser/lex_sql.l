@@ -8,6 +8,7 @@ struct ParserContext;
 extern int atoi();
 extern double atof();
 
+#define YYDEBUG 1
 #if YYDEBUG > 0
 #define debug_printf  printf
 #else
@@ -71,6 +72,8 @@ QUOTE            [\'\"]
 [Ll][Oo][Aa][Dd]                                     RETURN_TOKEN(LOAD);
 [Dd][Aa][Tt][Aa]                                     RETURN_TOKEN(DATA);
 [Ii][Nn][Ff][Ii][Ll][Ee]                             RETURN_TOKEN(INFILE);
+[Dd][Aa][Tt][Ee]                     RETURN_TOKEN(DATE_T);
+{QUOTE}[0-9]{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01]){QUOTE} yylval->string=strdup(yytext); RETURN_TOKEN(DATE_STR);
 {ID}                                                 yylval->string=strdup(yytext); RETURN_TOKEN(ID);
 "("                                                  RETURN_TOKEN(LBRACE);
 ")"                                                  RETURN_TOKEN(RBRACE);
