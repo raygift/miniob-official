@@ -66,10 +66,10 @@ int TupleCell::compare(const TupleCell &other) const
     int other_data = std::atoi(other.data_);
     return compare_int(data_, &other_data);
   } else if (this->attr_type_ == CHARS && other.attr_type_ == FLOATS) { // CHARS, INTS
-    int this_data = std::atof(data_);
+    float this_data = std::atof(data_);
     return compare_float(&this_data, other.data_);
   } else if (this->attr_type_ == FLOATS && other.attr_type_ == CHARS) { // INTS, CHARS
-    int other_data = std::atof(other.data_);
+    float other_data = std::atof(other.data_);
     return compare_float(data_, &other_data);
   }
   LOG_WARN("not supported");
