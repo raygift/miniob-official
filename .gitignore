@@ -19,8 +19,10 @@ GTAGS
 #*#
 
 miniob/*
-build.sh
-auto_client.sh
+# build.sh
+# auto_client.sh
+# start.sh
+# log.py
 observer.log*
 *.data
 *.table
