@@ -62,6 +62,8 @@ with fileinput.input() as f:
     datetime_interval = 10  # every interval time print data&time
 
     c = colors()
+    not_log_color = c.UYellow
+
     log_date_color = c.BYellow
     log_time_color = c.BYellow
     log_level_info_color = c.BGreen
@@ -76,7 +78,7 @@ with fileinput.input() as f:
     for line in f:
         # print("###origin###: " + line, end='')
         if line[0] != '[' or len(line.split(" ")) < 4:  # magic number
-            print(line, end='')
+            print(not_log_color + line + c.Null, end='')
             continue
         line = line.replace(']>>', ' ')
         line = line.replace('[', '')
