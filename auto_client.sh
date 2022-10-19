@@ -2,7 +2,13 @@
 
 build/bin/obclient << EOF
 
-select * from Select_tables_7;
+CREATE TABLE Typecast_table_2(id int, name char, age float);
+
+INSERT INTO Typecast_table_2 VALUES (0.4,1.5,9.5);
+INSERT INTO Typecast_table_2 VALUES (1.0,2.5,9.5);
+INSERT INTO Typecast_table_2 VALUES (1.9,'3.5',11.5);
+
+select * from Typecast_table_2;
 
 exit
 EOF
