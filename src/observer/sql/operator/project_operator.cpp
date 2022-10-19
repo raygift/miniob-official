@@ -59,6 +59,18 @@ void ProjectOperator::add_projection(const Table *table, const FieldMeta *field_
   tuple_.add_cell_spec(spec);
 }
 
+void ProjectOperator::add_projection_with_table_name(const Table *table, const FieldMeta *field_meta)
+{
+  // 对多表查询来说，展示的alias 需要带表名字
+  TupleCellSpec *spec = new TupleCellSpec(new FieldExpr(table, field_meta));
+  char *alias = (char *)malloc(strlen(table->name()) + 1 + strlen(field_meta->name()) + 1);
+  strcpy(alias, table->name());
+  strcat(alias, ".");
+  strcat(alias, field_meta->name());
+  spec->set_alias(alias);
+  tuple_.add_cell_spec(spec);
+}
+
 RC ProjectOperator::tuple_cell_spec_at(int index, const TupleCellSpec *&spec) const
 {
   return tuple_.cell_spec_at(index, spec);

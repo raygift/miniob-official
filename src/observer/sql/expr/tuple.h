@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 
 #include <memory>
 #include <vector>
+#include <unordered_map>
 
 #include "common/log/log.h"
 #include "sql/parser/parse.h"
@@ -162,17 +163,105 @@ private:
   std::vector<TupleCellSpec *> speces_;
 };
 
-/*
 class CompositeTuple : public Tuple
 {
 public:
-  int cell_num() const override; 
-  RC  cell_at(int index, TupleCell &cell) const = 0;
+  CompositeTuple() = default;
+  virtual ~CompositeTuple()
+  {
+    for (TupleCellSpec *spec : speces_) {
+      delete spec;
+    }
+    speces_.clear();
+  }
+
+  void set_data(std::vector<char *> data)
+  {
+    this->data_ = data;
+  }
+
+  void set_schema(const std::vector<Table *> tables)
+  {
+    int current_table_offset = 0;
+    for (auto table : tables) {
+      // reocord table offsets
+      table_offsets_[table->name()] = current_table_offset;
+      current_table_offset++;
+      // push spec of table
+      const std::vector<FieldMeta> *fields = table->table_meta().field_metas();
+      for (const FieldMeta &field : *fields) {
+        TupleCellSpec *tupleCellSpec = new TupleCellSpec(new FieldExpr(table, &field));
+        speces_.push_back(tupleCellSpec);
+      }
+    }
+  }
+
+  int cell_num() const override
+  {
+    return speces_.size();
+  }
+
+  RC cell_at(int index, TupleCell &cell) const override
+  {
+    if (index < 0 || index >= speces_.size()) {
+      LOG_WARN("invalid argument. index=%d", index);
+      return RC::INVALID_ARGUMENT;
+    }
+
+    const TupleCellSpec *spec = speces_[index];
+    FieldExpr *field_expr = (FieldExpr *)spec->expression();
+    const FieldMeta *field_meta = field_expr->field().meta();
+
+    auto search = table_offsets_.find(field_expr->field().table()->name());
+    if (search == table_offsets_.end()) {
+      return RC::NOTFOUND;
+    }
+    int table_offset = search->second;
+
+    cell.set_type(field_meta->type());
+    cell.set_data(data_[table_offset] + field_meta->offset());
+    cell.set_length(field_meta->len());
+    return RC::SUCCESS;
+  }
+
+  // in: field - declare field meta
+  // out: cell - return cell of specified field
+  RC find_cell(const Field &field, TupleCell &cell) const override
+  {
+    const char *table_name = field.table_name();
+    std::string table_name_str(table_name);
+    auto search = table_offsets_.find(table_name_str);
+    if (search == table_offsets_.end()) {
+      return RC::NOTFOUND;
+    }
+
+    const char *field_name = field.field_name();
+    for (int i = 0; i < speces_.size(); ++i) {
+      const FieldExpr *field_expr = (const FieldExpr *)speces_[i]->expression();
+      const Field &field = field_expr->field();
+      if (0 == strcmp(field_name, field.field_name()) && 0 == strcmp(table_name, field.table_name())) {
+        return cell_at(i, cell);
+      }
+    }
+    return RC::NOTFOUND;
+  }
+
+  RC cell_spec_at(int index, const TupleCellSpec *&spec) const override
+  {
+    if (index < 0 || index >= speces_.size()) {
+      LOG_WARN("invalid argument. index=%d", index);
+      return RC::INVALID_ARGUMENT;
+    }
+    spec = speces_[index];
+    return RC::SUCCESS;
+  }
+
 private:
-  int cell_num_ = 0;
-  std::vector<Tuple *> tuples_;
+  std::vector<char *> data_;
+  std::unordered_map<std::string, int> table_offsets_;
+  const std::vector<Table *> tables_;
+  std::vector<TupleCellSpec *> speces_;
 };
-*/
 
 class ProjectTuple : public Tuple
 {

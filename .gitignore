@@ -17,3 +17,10 @@ GRTAGS
 GPATH
 GTAGS
 #*#
+
+miniob/*
+build.sh
+auto_client.sh
+observer.log*
+*.data
+*.table
