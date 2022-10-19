@@ -60,11 +60,15 @@ int TupleCell::compare(const TupleCell &other) const
     float other_data = *(int *)other.data_;
     return compare_float(data_, &other_data);
   } else if (this->attr_type_ == CHARS && other.attr_type_ == INTS) { // CHARS, INTS
-    int this_data = std::atoi(data_);
-    return compare_int(&this_data, other.data_);
+    float this_data = std::atof(data_);
+    float other_data = *(int *)other.data_;
+    // LOG_WARN("compare chars(%s, %f) <=> ints(%d, %f)", data_, this_data, other.data_, other_data);
+    return compare_float(&this_data, &other_data);
   } else if (this->attr_type_ == INTS && other.attr_type_ == CHARS) { // INTS, CHARS
-    int other_data = std::atoi(other.data_);
-    return compare_int(data_, &other_data);
+    float this_data = *(int *)data_;
+    float other_data = std::atof(other.data_);
+    // LOG_WARN("compare ints(%d, %f) <=> chars(%s, %f)", data_, this_data, other.data_, other_data);
+    return compare_float(&this_data, &other_data);
   } else if (this->attr_type_ == CHARS && other.attr_type_ == FLOATS) { // CHARS, INTS
     float this_data = std::atof(data_);
     return compare_float(&this_data, other.data_);
