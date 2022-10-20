@@ -409,7 +409,7 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
     size_t copy_len = field->len();
-    if (field->type() == CHARS) {
+    if (field->type() == CHARS || field->type() == DATES) {  // 对于类型为 char 的列，判断value 真实长度（为什么要处理？其他类型为什么不用处理？）
       const size_t data_len = strlen((const char *)value.data);
       if (copy_len > data_len) {
         copy_len = data_len + 1;
