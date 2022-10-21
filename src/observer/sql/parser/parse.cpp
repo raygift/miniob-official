@@ -275,11 +275,26 @@ void drop_table_destroy(DropTable *drop_table)
 }
 
 void create_index_init(
-    CreateIndex *create_index, const char *index_name, const char *relation_name, const char *attr_name)
+    CreateIndex *create_index, const char *index_name, const char *relation_name, const char *attr_name, const char *unique_str)
 {
   create_index->index_name = strdup(index_name);
   create_index->relation_name = strdup(relation_name);
   create_index->attribute_name = strdup(attr_name);
+  const char* u = "UNIQUE";
+  if (strcmp(unique_str, u) == 0) {
+    create_index->unique = 1;
+  } else {
+    create_index->unique = 0;
+  }
+}
+
+void index_attr_init(AttrInfo *attr_info, const char *name)
+{
+  attr_info->name = strdup(name);
+}
+
+void create_index_append_attribute(CreateIndex *create_index, AttrInfo *attr_info){
+  create_index->attributes[create_index->attribute_count++] = *attr_info;
 }
 
 void create_index_destroy(CreateIndex *create_index)
@@ -302,6 +317,16 @@ void drop_index_destroy(DropIndex *drop_index)
 {
   free((char *)drop_index->index_name);
   drop_index->index_name = nullptr;
+}
+
+void show_index_init(ShowIndex *show_index, const char *relation_name)
+{
+  show_index->relation_name = strdup(relation_name);
+}
+
+void show_index_destroy(ShowIndex *show_index){
+  free((char *)show_index->relation_name);
+  show_index->relation_name = nullptr;
 }
 
 void desc_table_init(DescTable *desc_table, const char *relation_name)
@@ -404,6 +429,9 @@ void query_reset(Query *query)
     case SCF_EXIT:
     case SCF_ERROR:
       break;
+    case SCF_SHOW_INDEX: {
+      show_index_destroy(&query->sstr.show_index);
+    }
   }
 }
 

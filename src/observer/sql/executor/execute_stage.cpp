@@ -212,6 +212,10 @@ void ExecuteStage::handle_request(common::StageEvent *event)
       const char *response = "Unsupported\n";
       session_event->set_response(response);
     } break;
+    case SCF_SHOW_INDEX: {
+      do_show_index(sql_event);
+      // session_event->set_response("SUCCESS\n");
+    } break;
     default: {
       LOG_ERROR("Unsupported command=%d\n", sql->flag);
     }
@@ -571,10 +575,15 @@ RC ExecuteStage::do_create_index(SQLStageEvent *sql_event)
     session_event->set_response("FAILURE\n");
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
-
-  RC rc = table->create_index(nullptr, create_index.index_name, create_index.attribute_name);
-  sql_event->session_event()->set_response(rc == RC::SUCCESS ? "SUCCESS\n" : "FAILURE\n");
-  return rc;
+  if (create_index.attributes->length==0){
+    RC rc = table->create_index(nullptr, create_index.index_name, create_index.attribute_name, create_index.unique);
+    sql_event->session_event()->set_response(rc == RC::SUCCESS ? "SUCCESS\n" : "FAILURE\n");
+    return rc;
+  }else{
+      RC rc = table->create_multi_index(nullptr, create_index.index_name, create_index.attributes);
+      sql_event->session_event()->set_response(rc == RC::SUCCESS ? "SUCCESS\n" : "FAILURE\n");
+      return rc;
+  }
 }
 
 RC ExecuteStage::do_show_tables(SQLStageEvent *sql_event)
@@ -591,6 +600,35 @@ RC ExecuteStage::do_show_tables(SQLStageEvent *sql_event)
       ss << table << std::endl;
     }
     session_event->set_response(ss.str().c_str());
+  }
+  return RC::SUCCESS;
+}
+
+RC ExecuteStage::do_show_index(SQLStageEvent *sql_event)
+{
+  Query *query = sql_event->query();
+  SessionEvent *session_event = sql_event->session_event();
+  Db *db = sql_event->session_event()->session()->get_current_db();
+  const char *table_name = query->sstr.show_index.relation_name;
+  Table *table = db->find_table(table_name);
+  std::stringstream ss;
+  if (table != nullptr) {
+    // 找到 table 上所有的 index，通过 ss 输出
+    const std::vector<Index *>* indexes = table->find_all_index();
+    ss << "Table | Non_unique | Key_name | Seq_in_index | Column_name" << std::endl;
+    int seq = 1;
+    for (auto it = indexes->begin(); it != indexes->end(); it++) {
+      auto index_meta = (*it)->index_meta();
+      // index_meta.desc(ss);
+      int non_unique = index_meta.is_unique() ? 0 : 1;
+      ss << table_name << " | " << non_unique << " | " << index_meta.name() << " | " 
+      << seq << " | " << index_meta.field() << std::endl;
+      // seq++;
+    }
+    session_event->set_response(ss.str().c_str());
+  } else {
+    // ss << "FAILURE"<<std::endl;
+    session_event->set_response("FAILURE\n");
   }
   return RC::SUCCESS;
 }

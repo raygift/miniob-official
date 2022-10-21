@@ -123,12 +123,20 @@ typedef struct {
   char *index_name;      // Index name
   char *relation_name;   // Relation name
   char *attribute_name;  // Attribute name
+  int unique;
+  size_t attribute_count;                // Length of attrs in Select clause
+  AttrInfo attributes[MAX_NUM];    // attrs in On clause
 } CreateIndex;
 
 // struct of  drop_index
 typedef struct {
   const char *index_name;  // Index name
 } DropIndex;
+
+// struct of show_index
+typedef struct {
+  const char *relation_name;
+} ShowIndex;
 
 typedef struct {
   const char *relation_name;
@@ -151,6 +159,7 @@ union Queries {
   DescTable desc_table;
   LoadData load_data;
   char *errors;
+  ShowIndex show_index;
 };
 
 // 修改yacc中相关数字编码为宏定义
@@ -173,7 +182,8 @@ enum SqlCommandFlag {
   SCF_ROLLBACK,
   SCF_LOAD_DATA,
   SCF_HELP,
-  SCF_EXIT
+  SCF_EXIT,
+  SCF_SHOW_INDEX
 };
 // struct of flag and sql_struct
 typedef struct Query {
@@ -226,8 +236,12 @@ void drop_table_init(DropTable *drop_table, const char *relation_name);
 void drop_table_destroy(DropTable *drop_table);
 
 void create_index_init(
-    CreateIndex *create_index, const char *index_name, const char *relation_name, const char *attr_name);
+    CreateIndex *create_index, const char *index_name, const char *relation_name, const char *attr_name, const char *unique_str);
+void create_index_append_attribute(CreateIndex *create_index, AttrInfo *attr_info);
 void create_index_destroy(CreateIndex *create_index);
+
+void show_index_init(ShowIndex *show_index, const char *relation_name);
+void show_index_destroy(ShowIndex *show_index);
 
 void drop_index_init(DropIndex *drop_index, const char *index_name);
 void drop_index_destroy(DropIndex *drop_index);
