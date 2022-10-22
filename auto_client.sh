@@ -2,7 +2,7 @@
 
 build/bin/obclient << EOF
 
-select * from Select_tables_7;
+select max(aa), min(aa) from s;
 
 exit
 EOF

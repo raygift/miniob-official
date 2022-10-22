@@ -89,19 +89,24 @@ extern int yydebug;
     LOAD = 290,                    /* LOAD  */
     DATA = 291,                    /* DATA  */
     INFILE = 292,                  /* INFILE  */
-    EQ = 293,                      /* EQ  */
-    LT = 294,                      /* LT  */
-    GT = 295,                      /* GT  */
-    LE = 296,                      /* LE  */
-    GE = 297,                      /* GE  */
-    NE = 298,                      /* NE  */
-    NUMBER = 299,                  /* NUMBER  */
-    FLOAT = 300,                   /* FLOAT  */
-    ID = 301,                      /* ID  */
-    PATH = 302,                    /* PATH  */
-    SSS = 303,                     /* SSS  */
-    STAR = 304,                    /* STAR  */
-    STRING_V = 305                 /* STRING_V  */
+    MAX_SYM = 293,                 /* MAX_SYM  */
+    MIN_SYM = 294,                 /* MIN_SYM  */
+    AVG_SYM = 295,                 /* AVG_SYM  */
+    SUM_SYM = 296,                 /* SUM_SYM  */
+    COUNT_SYM = 297,               /* COUNT_SYM  */
+    EQ = 298,                      /* EQ  */
+    LT = 299,                      /* LT  */
+    GT = 300,                      /* GT  */
+    LE = 301,                      /* LE  */
+    GE = 302,                      /* GE  */
+    NE = 303,                      /* NE  */
+    NUMBER = 304,                  /* NUMBER  */
+    FLOAT = 305,                   /* FLOAT  */
+    ID = 306,                      /* ID  */
+    PATH = 307,                    /* PATH  */
+    SSS = 308,                     /* SSS  */
+    STAR = 309,                    /* STAR  */
+    STRING_V = 310                 /* STRING_V  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -110,7 +115,7 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 106 "yacc_sql.y"
+#line 111 "yacc_sql.y"
 
   struct _Attr *attr;
   struct _Condition *condition1;
@@ -120,7 +125,7 @@ union YYSTYPE
   float floats;
 	char *position;
 
-#line 124 "yacc_sql.tab.h"
+#line 129 "yacc_sql.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

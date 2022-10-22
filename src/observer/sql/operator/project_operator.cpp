@@ -50,24 +50,73 @@ Tuple *ProjectOperator::current_tuple()
   return &tuple_;
 }
 
-void ProjectOperator::add_projection(const Table *table, const FieldMeta *field_meta)
+void ProjectOperator::add_projection(const Table *table, const FieldMeta *field_meta, AggreType aggre_type, bool multi_table)
 {
-  // 对单表来说，展示的(alias) 字段总是字段名称，
-  // 对多表查询来说，展示的alias 需要带表名字
   TupleCellSpec *spec = new TupleCellSpec(new FieldExpr(table, field_meta));
-  spec->set_alias(field_meta->name());
-  tuple_.add_cell_spec(spec);
-}
-
-void ProjectOperator::add_projection_with_table_name(const Table *table, const FieldMeta *field_meta)
-{
-  // 对多表查询来说，展示的alias 需要带表名字
-  TupleCellSpec *spec = new TupleCellSpec(new FieldExpr(table, field_meta));
-  char *alias = (char *)malloc(strlen(table->name()) + 1 + strlen(field_meta->name()) + 1);
-  strcpy(alias, table->name());
-  strcat(alias, ".");
-  strcat(alias, field_meta->name());
-  spec->set_alias(alias);
+  char *basic_alias;
+  int basic_length;
+  const char *field_name = "*";
+  if (field_meta != nullptr) {
+    field_name = field_meta->name();
+  }
+  if (!multi_table) {
+    // 对单表来说，展示的(alias) 字段总是字段名称，
+    basic_length = strlen(field_name) + 1;
+    basic_alias = (char *)malloc(basic_length);
+    strcpy(basic_alias, field_name);
+  } else {
+    // 对多表查询来说，展示的alias 需要带表名字
+    basic_length = strlen(table->name()) + 1 + strlen(field_name) + 1;
+    basic_alias = (char *)malloc(basic_length);
+    strcpy(basic_alias, table->name());
+    strcat(basic_alias, ".");
+    strcat(basic_alias, field_name);
+  }
+  char *aggre_alias = basic_alias;
+  switch (aggre_type)
+  {
+  case MAX:
+  {
+    aggre_alias = (char *) malloc(basic_length + 5);
+    strcpy(aggre_alias, "MAX(");
+    strcat(aggre_alias, basic_alias);
+    strcat(aggre_alias, ")");
+    break;
+  }
+  case MIN:
+  {
+    aggre_alias = (char *) malloc(basic_length + 5);
+    strcpy(aggre_alias, "MIN(");
+    strcat(aggre_alias, basic_alias);
+    strcat(aggre_alias, ")");
+    break;
+  }
+  case SUM:
+  {
+    aggre_alias = (char *) malloc(basic_length + 5);
+    strcpy(aggre_alias, "SUM(");
+    strcat(aggre_alias, basic_alias);
+    strcat(aggre_alias, ")");
+    break;
+  }
+  case AVG:
+  {
+    aggre_alias = (char *) malloc(basic_length + 5);
+    strcpy(aggre_alias, "AVG(");
+    strcat(aggre_alias, basic_alias);
+    strcat(aggre_alias, ")");
+    break;
+  }
+  case COUNT:
+  {
+    aggre_alias = (char *) malloc(basic_length + 7);
+    strcpy(aggre_alias, "COUNT(");
+    strcat(aggre_alias, basic_alias);
+    strcat(aggre_alias, ")");
+    break;
+  }
+  }
+  spec->set_alias(aggre_alias);
   tuple_.add_cell_spec(spec);
 }
 

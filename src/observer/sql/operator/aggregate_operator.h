@@ -17,15 +17,15 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/operator.h"
 #include "rc.h"
 
-class ProjectOperator : public Operator
+class AggregateOperator : public Operator
 {
 public:
-  ProjectOperator()
+  AggregateOperator()
   {}
 
-  virtual ~ProjectOperator() = default;
+  virtual ~AggregateOperator() = default;
 
-  void add_projection(const Table *table, const FieldMeta *field_meta, AggreType aggre_type, bool multi_table);
+  void add_aggregation(Field field);
 
   RC open() override;
   RC next() override;
@@ -40,5 +40,10 @@ public:
 
   Tuple * current_tuple() override;
 private:
-  ProjectTuple tuple_;
+  SimpleTuple tuple_;
+  std::vector<Field> aggre_fields_;
+  std::vector<TupleCell> current_cell_;
+  std::vector<float> statistics_;
+  int total_row_count_ = 0;
+  bool remain_result_ = false;
 };

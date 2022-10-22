@@ -67,7 +67,7 @@ with fileinput.input() as f:
     log_date_color = c.BYellow
     log_time_color = c.BYellow
     log_level_info_color = c.BGreen
-    log_level_warn_color = c.BYellow
+    log_level_warn_color = c.BRed
     log_level_other_color = c.BRed
     log_file_color = c.Blue
     log_content_color = c.Black

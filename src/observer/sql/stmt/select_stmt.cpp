@@ -64,18 +64,26 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
   }
   
   // collect query fields in `select` statement
+  bool have_aggregation = false;
   std::vector<Field> query_fields;
   for (int i = select_sql.attr_num - 1; i >= 0; i--) {
     const RelAttr &relation_attr = select_sql.attributes[i];
+    if (relation_attr.aggre_type != NO_AGGRE) {
+      have_aggregation = true;
+    }
 
     if (common::is_blank(relation_attr.relation_name) && 0 == strcmp(relation_attr.attribute_name, "*")) {
       // for (Table *table : tables) {
       //   wildcard_fields(table, query_fields);
       // }
-      for (int i = tables.size() - 1; i >= 0; i--) {
-        wildcard_fields(tables[i], query_fields);
+      if (relation_attr.aggre_type == COUNT) {
+        // FieldMeta field_meta;
+        query_fields.push_back(Field(nullptr, nullptr, COUNT));
+      } else {
+        for (int i = tables.size() - 1; i >= 0; i--) {
+          wildcard_fields(tables[i], query_fields);
+        }
       }
-
     } else if (!common::is_blank(relation_attr.relation_name)) { // TODO
       const char *table_name = relation_attr.relation_name;
       const char *field_name = relation_attr.attribute_name;
@@ -105,7 +113,7 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
             return RC::SCHEMA_FIELD_MISSING;
           }
 
-        query_fields.push_back(Field(table, field_meta));
+        query_fields.push_back(Field(table, field_meta, relation_attr.aggre_type));
         }
       }
     } else {
@@ -121,7 +129,7 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
         return RC::SCHEMA_FIELD_MISSING;
       }
 
-      query_fields.push_back(Field(table, field_meta));
+      query_fields.push_back(Field(table, field_meta, relation_attr.aggre_type));
     }
   }
 
@@ -146,6 +154,7 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
   select_stmt->tables_.swap(tables);
   select_stmt->query_fields_.swap(query_fields);
   select_stmt->filter_stmt_ = filter_stmt;
+  select_stmt->have_aggregation_ =  have_aggregation;
   stmt = select_stmt;
   return RC::SUCCESS;
 }

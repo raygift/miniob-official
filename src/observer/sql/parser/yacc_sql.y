@@ -96,11 +96,11 @@ ParserContext *get_context(yyscan_t scanner)
         LOAD
         DATA
         INFILE
-		MAX
-		MIN
-		COUNT
-		AVG
-		SUM
+		MAX_SYM
+		MIN_SYM
+		AVG_SYM
+		SUM_SYM
+		COUNT_SYM
         EQ
         LT
         GT
@@ -378,8 +378,81 @@ select_attr:
 			RelAttr attr;
 			relation_attr_init(&attr, NULL, "*");
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
-	}
+		}
+	| aggregation aggregation_list {}
     ;
+aggregation:
+	MAX_SYM LBRACE ID RBRACE {
+			RelAttr attr;
+			relation_attr_init(&attr, NULL, $3);
+			relation_attr_set_aggre_type(&attr, MAX);
+			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+		}
+	| MAX_SYM LBRACE ID DOT ID RBRACE {
+			RelAttr attr;
+			relation_attr_init(&attr, $3, $5);
+			relation_attr_set_aggre_type(&attr, MAX);
+			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+		}
+	| MIN_SYM LBRACE ID RBRACE {
+			RelAttr attr;
+			relation_attr_init(&attr, NULL, $3);
+			relation_attr_set_aggre_type(&attr, MIN);
+			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| MIN_SYM LBRACE ID DOT ID RBRACE {
+			RelAttr attr;
+			relation_attr_init(&attr, $3, $5);
+			relation_attr_set_aggre_type(&attr, MIN);
+			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| AVG_SYM LBRACE ID RBRACE {
+			RelAttr attr;
+			relation_attr_init(&attr, NULL, $3);
+			relation_attr_set_aggre_type(&attr, AVG);
+			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| AVG_SYM LBRACE ID DOT ID RBRACE {
+			RelAttr attr;
+			relation_attr_init(&attr, $3, $5);
+			relation_attr_set_aggre_type(&attr, AVG);
+			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| SUM_SYM LBRACE ID RBRACE {
+			RelAttr attr;
+			relation_attr_init(&attr, NULL, $3);
+			relation_attr_set_aggre_type(&attr, SUM);
+			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| SUM_SYM LBRACE ID DOT ID RBRACE {
+			RelAttr attr;
+			relation_attr_init(&attr, $3, $5);
+			relation_attr_set_aggre_type(&attr, SUM);
+			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| COUNT_SYM LBRACE ID RBRACE {
+			RelAttr attr;
+			relation_attr_init(&attr, NULL, $3);
+			relation_attr_set_aggre_type(&attr, COUNT);
+			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| COUNT_SYM LBRACE ID DOT ID RBRACE {
+			RelAttr attr;
+			relation_attr_init(&attr, $3, $5);
+			relation_attr_set_aggre_type(&attr, COUNT);
+			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| COUNT_SYM LBRACE STAR RBRACE {
+			RelAttr attr;
+			relation_attr_init(&attr, NULL, "*");
+			relation_attr_set_aggre_type(&attr, COUNT);
+			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	;
+aggregation_list:
+	/* empty */
+	| COMMA aggregation {}
+	;
 attr_list:
     /* empty */
     | COMMA ID attr_list {

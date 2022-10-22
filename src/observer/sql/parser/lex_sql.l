@@ -72,11 +72,11 @@ QUOTE            [\'\"]
 [Dd][Aa][Tt][Aa]                                     RETURN_TOKEN(DATA);
 [Ii][Nn][Ff][Ii][Ll][Ee]                             RETURN_TOKEN(INFILE);
 
-[Mm][Aa][Xx]                                         RETURN_TOKEN(MAX);
-[Mm][Ii][Nn]                                         RETURN_TOKEN(MIN);
-[Cc][Oo][Uu][Nn][Tt]                                 RETURN_TOKEN(COUNT);
-[Aa][Vv][Gg]                                         RETURN_TOKEN(AVG);
-[Ss][Uu][Mm]                                         RETURN_TOKEN(SUM);
+[Mm][Aa][Xx]                                         RETURN_TOKEN(MAX_SYM);
+[Mm][Ii][Nn]                                         RETURN_TOKEN(MIN_SYM);
+[Aa][Vv][Gg]                                         RETURN_TOKEN(AVG_SYM);
+[Ss][Uu][Mm]                                         RETURN_TOKEN(SUM_SYM);
+[Cc][Oo][Uu][Nn][Tt]                                 RETURN_TOKEN(COUNT_SYM);
 
 {ID}                                                 yylval->string=strdup(yytext); RETURN_TOKEN(ID);
 
