@@ -50,7 +50,7 @@ Tuple *ProjectOperator::current_tuple()
   return &tuple_;
 }
 
-void ProjectOperator::add_projection(const Table *table, const FieldMeta *field_meta, AggreType aggre_type, bool multi_table)
+void ProjectOperator::add_projection(const Table *table, const FieldMeta *field_meta, bool multi_table)
 {
   TupleCellSpec *spec = new TupleCellSpec(new FieldExpr(table, field_meta));
   char *basic_alias;
@@ -72,51 +72,7 @@ void ProjectOperator::add_projection(const Table *table, const FieldMeta *field_
     strcat(basic_alias, ".");
     strcat(basic_alias, field_name);
   }
-  char *aggre_alias = basic_alias;
-  switch (aggre_type)
-  {
-  case MAX:
-  {
-    aggre_alias = (char *) malloc(basic_length + 5);
-    strcpy(aggre_alias, "MAX(");
-    strcat(aggre_alias, basic_alias);
-    strcat(aggre_alias, ")");
-    break;
-  }
-  case MIN:
-  {
-    aggre_alias = (char *) malloc(basic_length + 5);
-    strcpy(aggre_alias, "MIN(");
-    strcat(aggre_alias, basic_alias);
-    strcat(aggre_alias, ")");
-    break;
-  }
-  case SUM:
-  {
-    aggre_alias = (char *) malloc(basic_length + 5);
-    strcpy(aggre_alias, "SUM(");
-    strcat(aggre_alias, basic_alias);
-    strcat(aggre_alias, ")");
-    break;
-  }
-  case AVG:
-  {
-    aggre_alias = (char *) malloc(basic_length + 5);
-    strcpy(aggre_alias, "AVG(");
-    strcat(aggre_alias, basic_alias);
-    strcat(aggre_alias, ")");
-    break;
-  }
-  case COUNT:
-  {
-    aggre_alias = (char *) malloc(basic_length + 7);
-    strcpy(aggre_alias, "COUNT(");
-    strcat(aggre_alias, basic_alias);
-    strcat(aggre_alias, ")");
-    break;
-  }
-  }
-  spec->set_alias(aggre_alias);
+  spec->set_alias(basic_alias);
   tuple_.add_cell_spec(spec);
 }
 

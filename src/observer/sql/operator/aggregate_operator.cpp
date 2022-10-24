@@ -12,6 +12,7 @@ See the Mulan PSL v2 for more details. */
 // Created by WangYunlai on 2022/07/01.
 //
 #include <cmath>
+#include <iomanip>
 
 #include "common/log/log.h"
 #include "sql/operator/aggregate_operator.h"
@@ -50,12 +51,7 @@ RC AggregateOperator::open()
     }
 
     for (int i = 0 ; i < aggre_fields_.size() ; i++) {
-      TupleCell cell, zero_cell;
-      char zero_data[sizeof(float)];
-      sprintf(zero_data, "%f", 0);
-      zero_cell.set_type(FLOATS);
-      zero_cell.set_data(zero_data);
-      zero_cell.set_length(sizeof(float));
+      TupleCell cell;
       auto aggre_field = aggre_fields_[i];
       float new_data;
       // update statistic value
@@ -103,58 +99,16 @@ RC AggregateOperator::open()
       }
       case COUNT:
       {
-        // tuple->find_cell(aggre_field, cell);
         // XXX: miniob doesn't have NULL values
         statistics_[i]++; 
         break;
       }
       default: break;
       }
-      total_row_count_ ++;
     }
+    total_row_count_ ++;
   }
 
-  // post-process statistic value
-  for (int i = 0 ; i < aggre_fields_.size() ; i++) {
-    TupleCell cell;
-    switch (aggre_fields_[i].aggre_type())
-    {
-    case AVG:
-    {
-      cell.set_type(FLOATS);
-      float avg_data = statistics_[i] / total_row_count_;
-      cell.set_data((char *) &avg_data);
-      cell.set_length(sizeof(float));
-      break;
-    }
-    case SUM: {
-      cell.set_type(FLOATS);
-      // char *sum_data = (char *)malloc(sizeof(int));
-      // sprintf(sum_data, "%f", statistics_[i]);
-      cell.set_data((char *) &statistics_[i]);
-      cell.set_length(sizeof(float));
-      break;
-    }
-    case COUNT:
-    {
-      cell.set_type(INTS);
-      // char *count_data = (char *)malloc(sizeof(int));
-      // sprintf(count_data, "%d", std::round(statistics_[i]));
-      int count = std::round(statistics_[i]);
-      cell.set_data((char *) &count);
-      cell.set_length(sizeof(int));
-      break;
-    }
-    default: // MIN / MAX
-    {
-      cell.set_type(aggre_fields_[i].attr_type());
-      cell.set_data(current_cell_[i].data());
-      cell.set_length(current_cell_[i].length());
-      break;
-    }
-    }
-    tuple_.push_cell(cell);
-  }
 
   remain_result_ = true;
   if ( total_row_count_ == 0 ) {
@@ -181,17 +135,124 @@ RC AggregateOperator::close()
   return RC::SUCCESS;
 }
 
+void AggregateOperator::output(std::ostream &os) {
+  bool first_field = true;
+  // post-process statistic value
+  for (int i = 0 ; i < aggre_fields_.size() ; i++) {
+    if (!first_field) {
+      os << " | ";
+    } else {
+      first_field = false;
+    }
+    TupleCell *cell = new TupleCell();
+    switch (aggre_fields_[i].aggre_type())
+    {
+    case AVG:
+    {
+      statistics_[i] = statistics_[i] / total_row_count_;
+      char buffer[100];
+      sprintf(buffer, "%.2f", statistics_[i]);
+      sprintf(buffer, "%g", std::atof(buffer));
+      os << buffer;
+      // cell->set_type(FLOATS);
+      // cell->set_data((char *) &statistics_[i]);
+      // cell->set_length(sizeof(float));
+      break;
+    }
+    case SUM: {
+      os << statistics_[i];
+      // cell->set_type(FLOATS);
+      // cell->set_data((char *) &statistics_[i]);
+      // cell->set_length(sizeof(float));
+      break;
+    }
+    case COUNT:
+    {
+      int count = statistics_[i];
+      os << count;
+      // cell->set_type(INTS);
+      // cell->set_data((char *) &count);
+      // cell->set_length(sizeof(int));
+      break;
+    }
+    default: // MIN / MAX
+    {
+      current_cell_[i].to_string(os);
+      // cell->set_type(aggre_fields_[i].attr_type());
+      // cell->set_data(current_cell_[i].data());
+      // cell->set_length(current_cell_[i].length());
+      break;
+    }
+    }
+    // cell->to_string(os);
+    tuple_.push_cell(*cell);
+  }
+}
+
 Tuple *AggregateOperator::current_tuple()
 {
-  // TODO: build a new statistic tuple
-
-  // tuple_.set_tuple(children_[0]->current_tuple());
   return &tuple_;
 }
 
 void AggregateOperator::add_aggregation(Field field)
 {
   TupleCellSpec *spec = new TupleCellSpec(new FieldExpr(field.table(), field.meta()));
+  char *basic_alias;
+  int basic_length;
+  const char *field_name = "*";
+  auto field_meta = field.meta();
+  if (field_meta != nullptr) {
+    field_name = field_meta->name();
+  }
+  // 对单表来说，展示的(alias) 字段总是字段名称，
+  basic_length = strlen(field_name) + 1;
+  basic_alias = (char *)malloc(basic_length);
+  strcpy(basic_alias, field_name);
+  char *aggre_alias = basic_alias;
+  switch (field.aggre_type())
+  {
+  case MAX:
+  {
+    aggre_alias = (char *) malloc(basic_length + 5);
+    strcpy(aggre_alias, "MAX(");
+    strcat(aggre_alias, basic_alias);
+    strcat(aggre_alias, ")");
+    break;
+  }
+  case MIN:
+  {
+    aggre_alias = (char *) malloc(basic_length + 5);
+    strcpy(aggre_alias, "MIN(");
+    strcat(aggre_alias, basic_alias);
+    strcat(aggre_alias, ")");
+    break;
+  }
+  case SUM:
+  {
+    aggre_alias = (char *) malloc(basic_length + 5);
+    strcpy(aggre_alias, "SUM(");
+    strcat(aggre_alias, basic_alias);
+    strcat(aggre_alias, ")");
+    break;
+  }
+  case AVG:
+  {
+    aggre_alias = (char *) malloc(basic_length + 5);
+    strcpy(aggre_alias, "AVG(");
+    strcat(aggre_alias, basic_alias);
+    strcat(aggre_alias, ")");
+    break;
+  }
+  case COUNT:
+  {
+    aggre_alias = (char *) malloc(basic_length + 7);
+    strcpy(aggre_alias, "COUNT(");
+    strcat(aggre_alias, basic_alias);
+    strcat(aggre_alias, ")");
+    break;
+  }
+  }
+  spec->set_alias(aggre_alias);
   tuple_.push_cell_spec(spec);
   aggre_fields_.push_back(field);
 }

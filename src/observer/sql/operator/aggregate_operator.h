@@ -39,6 +39,8 @@ public:
   RC tuple_cell_spec_at(int index, const TupleCellSpec *&spec) const;
 
   Tuple * current_tuple() override;
+
+  void output(std::ostream &os);
 private:
   SimpleTuple tuple_;
   std::vector<Field> aggre_fields_;
