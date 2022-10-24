@@ -50,12 +50,7 @@ RC AggregateOperator::open()
     }
 
     for (int i = 0 ; i < aggre_fields_.size() ; i++) {
-      TupleCell cell, zero_cell;
-      char zero_data[sizeof(float)];
-      sprintf(zero_data, "%f", 0);
-      zero_cell.set_type(FLOATS);
-      zero_cell.set_data(zero_data);
-      zero_cell.set_length(sizeof(float));
+      TupleCell cell;
       auto aggre_field = aggre_fields_[i];
       float new_data;
       // update statistic value
@@ -103,7 +98,6 @@ RC AggregateOperator::open()
       }
       case COUNT:
       {
-        // tuple->find_cell(aggre_field, cell);
         // XXX: miniob doesn't have NULL values
         statistics_[i]++; 
         break;
@@ -129,8 +123,6 @@ RC AggregateOperator::open()
     }
     case SUM: {
       cell->set_type(FLOATS);
-      // char *sum_data = (char *)malloc(sizeof(int));
-      // sprintf(sum_data, "%f", statistics_[i]);
       cell->set_data((char *) &statistics_[i]);
       cell->set_length(sizeof(float));
       break;
@@ -138,8 +130,6 @@ RC AggregateOperator::open()
     case COUNT:
     {
       cell->set_type(INTS);
-      // char *count_data = (char *)malloc(sizeof(int));
-      // sprintf(count_data, "%d", std::round(statistics_[i]));
       int count = std::round(statistics_[i]);
       cell->set_data((char *) &count);
       cell->set_length(sizeof(int));
@@ -183,9 +173,6 @@ RC AggregateOperator::close()
 
 Tuple *AggregateOperator::current_tuple()
 {
-  // TODO: build a new statistic tuple
-
-  // tuple_.set_tuple(children_[0]->current_tuple());
   return &tuple_;
 }
 
