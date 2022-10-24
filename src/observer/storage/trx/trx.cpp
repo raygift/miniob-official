@@ -113,6 +113,15 @@ RC Trx::delete_record(Table *table, Record *record)
   return rc;
 }
 
+// 为 update 操作新增，参考 delete_record
+RC Trx::update_record(Table *table, Record *record,const char *old_record)
+{
+  RC rc = RC::SUCCESS;
+  //  TODO(zhangpc)
+  LOG_ERROR("TODO(zhangpc) need handle Trx.update_record()\n");
+  return rc;
+}
+
 void Trx::set_record_trx_id(Table *table, Record &record, int32_t trx_id, bool deleted) const
 {
   const FieldMeta *trx_field = table->table_meta().trx_field();

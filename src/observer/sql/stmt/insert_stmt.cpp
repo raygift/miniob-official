@@ -59,7 +59,7 @@ RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
 
     Value new_val;
     if (field_type == value_type) {
-      continue;
+      new_val = values[i];
     } else if (value_type == INTS && field_type == FLOATS) {
       float new_data = *(int*)values[i].data;
       value_init_float(&new_val, new_data);
@@ -78,7 +78,7 @@ RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
       value_init_float(&new_val, new_data);
     } else if (value_type == FLOATS && field_type == CHARS) {
       char new_data[sizeof(float)];
-      sprintf(new_data, "%f", *(float *)values[i].data);
+      sprintf(new_data, "%g", *(float *)values[i].data);
       value_init_string(&new_val, new_data);
     } else {
       LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d", 
