@@ -69,8 +69,16 @@ EOF
 
 # select * from Typecast_table_1;
 # select * from Typecast_table_1 WHERE age>'11';
+# CREATE TABLE Typecast_table_2(id int, name char, age float);
+# INSERT INTO Typecast_table_2 VALUES (0.4,1.5,9.5);
+# INSERT INTO Typecast_table_2 VALUES (1.0,2.50,9.5);
+# INSERT INTO Typecast_table_2 VALUES (1.9,'3.5',11.5);
 # select * from Typecast_table_2;
 # select * from Typecast_table_2 WHERE age<=10;
+# CREATE TABLE Typecast_table_3(id int, name char, age float);
+# INSERT INTO Typecast_table_3 VALUES (1,1,1);
+# INSERT INTO Typecast_table_3 VALUES (2,2,2);
+# INSERT INTO Typecast_table_3 VALUES (3,3,3);
 # select * from Typecast_table_3;
 # select * from Typecast_table_3 WHERE id<'1.5a';
 # select * from Typecast_table_3 WHERE id>='3a';
