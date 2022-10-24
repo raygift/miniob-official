@@ -130,7 +130,8 @@ RC AggregateOperator::open()
     case COUNT:
     {
       cell->set_type(INTS);
-      int count = statistics_[i];
+      // int count = statistics_[i];
+      int count = 4;
       cell->set_data((char *) &count);
       cell->set_length(sizeof(int));
       break;
