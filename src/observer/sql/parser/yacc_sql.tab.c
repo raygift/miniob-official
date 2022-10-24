@@ -1822,7 +1822,7 @@ yyreduce:
                                                         {
 			RelAttr attr;
 			relation_attr_init(&attr, NULL, "*");
-			// relation_attr_set_aggre_type(&attr, COUNT);
+			relation_attr_set_aggre_type(&attr, COUNT);
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 		}
 #line 1829 "yacc_sql.tab.c"
