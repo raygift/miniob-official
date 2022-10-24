@@ -32,16 +32,20 @@ RC AggregateOperator::open()
     return rc;
   }
 
-  // pre-process: init statistics and first cell
   for (int i = 0 ; i < aggre_fields_.size() ; i++) {
     current_cell_.push_back(TupleCell());
     statistics_.push_back(0);
   }
-  
+
+  return RC::SUCCESS;
+}
+
+RC AggregateOperator::next()
+{
+  RC rc = RC::SUCCESS;
+  Operator *child = children_[0];
   //  scan all record and statistic
   while ((rc = child->next()) == RC::SUCCESS) {
-    // get current record
-    // write to response
     Tuple * tuple = child->current_tuple();
     if (nullptr == tuple) {
       rc = RC::INTERNAL;
@@ -50,113 +54,36 @@ RC AggregateOperator::open()
     }
 
     for (int i = 0 ; i < aggre_fields_.size() ; i++) {
+      Field aggre_field = aggre_fields_[i];
+      AggreType aggre_type =  aggre_field.aggre_type();
+      if (aggre_type == COUNT) {
+        statistics_[i]++; // XXX: for now miniob doesn't have NULL values
+        continue;
+      } 
       TupleCell cell;
-      auto aggre_field = aggre_fields_[i];
-      float new_data;
-      // update statistic value
-      switch (aggre_field.aggre_type())
-      {
-      case MAX: {
-        tuple->find_cell(aggre_field, cell); // compare the statistic
-        if (current_cell_[i].data() == nullptr || current_cell_[i].compare(cell) <= 0)
+      tuple->find_cell(aggre_field, cell); // compare the statistic
+      if ( ( aggre_type == MAX && (current_cell_[i].data() == nullptr || current_cell_[i].compare(cell) <= 0)) ||
+          ( aggre_type == MIN && (current_cell_[i].data() == nullptr || current_cell_[i].compare(cell) >= 0)) )
           current_cell_[i] = cell;
-        break;
-      }
-      case MIN:
-      {
-        tuple->find_cell(aggre_field, cell); // compare the statistic
-        if (current_cell_[i].data() == nullptr || current_cell_[i].compare(cell) >= 0)
-          current_cell_[i] = cell;
-        break;
-      }
-      case AVG:
-      {
-        tuple->find_cell(aggre_field, cell);
-        switch (cell.attr_type())
-        {
-        case INTS: new_data = *(int *)cell.data(); break;
-        case FLOATS: new_data = *(float *)cell.data(); break;
-        case CHARS: new_data = std::atof((char *)cell.data()); break;
-        default: new_data = 0; break; // TODO: 
+      else if ( aggre_type == SUM || aggre_type == AVG ) {
+        float new_data;
+        switch (cell.attr_type()) {
+          case INTS:   new_data = *(int *)cell.data(); break;
+          case FLOATS: new_data = *(float *)cell.data(); break;
+          case CHARS:  new_data = std::atof((char *)cell.data()); break;
+          default:     new_data = 0; break; // TODO: 
         }
         statistics_[i] += new_data; 
-        break;
-      }
-      case SUM:
-      {
-        tuple->find_cell(aggre_field, cell);
-        switch (cell.attr_type())
-        {
-        case INTS: new_data = *(int *)cell.data(); break;
-        case FLOATS: new_data = *(float *)cell.data(); break;
-        case CHARS: new_data = std::atof((char *)cell.data()); break;
-        default: new_data = 0; break; // TODO:
-        }
-        // new_data = cell.compare(zero_cell);
-        statistics_[i] += new_data; 
-        break;
-      }
-      case COUNT:
-      {
-        // XXX: miniob doesn't have NULL values
-        statistics_[i]++; 
-        break;
-      }
-      default: break;
       }
     }
     total_row_count_ ++;
   }
-
-  // post-process statistic value
-  for (int i = 0 ; i < aggre_fields_.size() ; i++) {
-    TupleCell *cell = new TupleCell();
-    switch (aggre_fields_[i].aggre_type())
-    {
-    case AVG:
-    {
-      cell->set_type(FLOATS);
-      statistics_[i] = statistics_[i] / total_row_count_;
-      cell->set_data((char *) &statistics_[i]);
-      cell->set_length(sizeof(float));
-      break;
-    }
-    case SUM: {
-      cell->set_type(FLOATS);
-      cell->set_data((char *) &statistics_[i]);
-      cell->set_length(sizeof(float));
-      break;
-    }
-    case COUNT:
-    {
-      cell->set_type(INTS);
-      int count = std::round(statistics_[i]);
-      cell->set_data((char *) &count);
-      cell->set_length(sizeof(int));
-      break;
-    }
-    default: // MIN / MAX
-    {
-      cell->set_type(aggre_fields_[i].attr_type());
-      cell->set_data(current_cell_[i].data());
-      cell->set_length(current_cell_[i].length());
-      break;
-    }
-    }
-    tuple_.push_cell(*cell);
+  if (rc != RC::RECORD_EOF) {
+    return rc;
+  } 
+  if (total_row_count_ == 0) {
+    remain_result_ = false;
   }
-
-  remain_result_ = true;
-  if ( total_row_count_ == 0 ) {
-    remain_result_= false;
-    return RC::SUCCESS;
-  }
-
-  return RC::SUCCESS;
-}
-
-RC AggregateOperator::next()
-{
   if (remain_result_) {
     remain_result_ = false;
     return RC::SUCCESS;
@@ -173,12 +100,66 @@ RC AggregateOperator::close()
 
 Tuple *AggregateOperator::current_tuple()
 {
+  // post-process statistic value
+  for (int i = 0 ; i < aggre_fields_.size() ; i++) {
+    switch (aggre_fields_[i].aggre_type()) {
+    case AVG: {
+      statistics_[i] = statistics_[i] / total_row_count_;
+      char buffer[100];
+      sprintf(buffer, "%.2f", statistics_[i]);
+      sprintf(buffer, "%g", std::atof(buffer));
+      float avg = std::atof(buffer);
+      current_cell_[i].set_type(FLOATS);
+      current_cell_[i].copy_data((char *) &avg, sizeof(float));
+    } break;
+    case SUM: {
+      current_cell_[i].set_type(FLOATS);
+      current_cell_[i].copy_data((char *) &statistics_[i], sizeof(float));
+    } break;
+    case COUNT: {
+      int count = statistics_[i];
+      current_cell_[i].set_type(INTS);
+      current_cell_[i].copy_data((char *) &count, sizeof(float));
+    } break;
+    default: {// MIN / MAX
+      current_cell_[i].set_type(aggre_fields_[i].attr_type());
+    } break;
+    }
+    tuple_.push_cell(current_cell_[i]);
+  }
   return &tuple_;
 }
 
 void AggregateOperator::add_aggregation(Field field)
 {
   TupleCellSpec *spec = new TupleCellSpec(new FieldExpr(field.table(), field.meta()));
+  char *basic_alias;
+  int basic_length;
+  const char *field_name = "*";
+  auto field_meta = field.meta();
+  if (field_meta != nullptr) {
+    field_name = field_meta->name();
+  }
+  // 对单表来说，展示的(alias) 字段总是字段名称，
+  basic_length = strlen(field_name) + 1;
+  basic_alias = (char *)malloc(basic_length);
+  strcpy(basic_alias, field_name);
+  char *aggre_alias = basic_alias, *prefix;
+  switch (field.aggre_type()) {
+  case MAX: { prefix = "MAX("; } break;
+  case MIN: { prefix = "MIN("; } break;
+  case SUM: { prefix = "SUM("; } break;
+  case AVG: { prefix = "AVG("; } break;
+  case COUNT: { prefix = "COUNT("; } break;
+  default: prefix = ""; break;
+  }
+  aggre_alias = (char *) malloc(basic_length + strlen(prefix) + 1);
+  strcpy(aggre_alias, prefix);
+  strcat(aggre_alias, basic_alias);
+  if (field.aggre_type() != NO_AGGRE) {
+    strcat(aggre_alias, ")");
+  }
+  spec->set_alias(aggre_alias);
   tuple_.push_cell_spec(spec);
   aggre_fields_.push_back(field);
 }

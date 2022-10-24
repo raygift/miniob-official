@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include <iostream>
+#include <cstring>
 #include "storage/common/table.h"
 #include "storage/common/field_meta.h"
 
@@ -32,6 +33,11 @@ public:
 
   void set_type(AttrType type) { this->attr_type_ = type; }
   void set_length(int length) { this->length_ = length; }
+  void copy_data(char *data, int length) {
+    this->data_ = (char *)malloc(length);
+    memcpy(this->data_, data, length);
+    this->length_ = length;
+  }
   void set_data(char *data) { this->data_ = data; }
   void set_data(const char *data) { this->set_data(const_cast<char *>(data)); }
 

@@ -133,9 +133,9 @@ public:
 
 
 private:
+  std::vector<TupleCellSpec *> speces_;
   std::vector<TupleCell> cells_;
   const Table *table_=nullptr;
-  std::vector<TupleCellSpec *> speces_;
 };
 
 class RowTuple : public Tuple

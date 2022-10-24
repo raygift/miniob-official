@@ -434,7 +434,7 @@ RC do_multi_select(SQLStageEvent *sql_event)
   ProjectOperator project_oper;
   project_oper.add_child(&pred_oper);
   for (const Field &field : select_stmt->query_fields()) {
-    project_oper.add_projection(field.table(), field.meta(), field.aggre_type(), true);
+    project_oper.add_projection(field.table(), field.meta(), true);
   }
   rc = project_oper.open();
   if (rc != RC::SUCCESS) {
@@ -490,38 +490,30 @@ RC do_statistic(SQLStageEvent *sql_event)
     aggre_oper.add_aggregation(field);
   }
 
-  ProjectOperator project_oper;
-  project_oper.add_child(&aggre_oper);
-  for (const Field &field : select_stmt->query_fields()) {
-    project_oper.add_projection(field.table(), field.meta(), field.aggre_type(), false);
-  }
-  rc = project_oper.open();
+  rc = aggre_oper.open();
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to open operator");
     return rc;
-  }
+  } 
 
   std::stringstream ss;
-  print_tuple_header(ss, project_oper);
+  print_aggre_header(ss, aggre_oper);
   while ((rc = aggre_oper.next()) == RC::SUCCESS) {
-    // get current record
-    // write to response
+    // get current record, write to response
     Tuple * tuple = aggre_oper.current_tuple();
     if (nullptr == tuple) {
       rc = RC::INTERNAL;
       LOG_WARN("failed to get current record. rc=%s", strrc(rc));
       break;
     }
-
     tuple_to_string(ss, *tuple);
     ss << std::endl;
   }
-
-  if (rc != RC::RECORD_EOF) {
+  if (rc == RC::RECORD_EOF) {
     LOG_WARN("something wrong while iterate operator. rc=%s", strrc(rc));
-    project_oper.close();
+    aggre_oper.close();
   } else {
-    rc = project_oper.close();
+    rc = aggre_oper.close();
   }
   session_event->set_response(ss.str());
   return rc;
@@ -556,7 +548,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   ProjectOperator project_oper;
   project_oper.add_child(&pred_oper);
   for (const Field &field : select_stmt->query_fields()) {
-    project_oper.add_projection(field.table(), field.meta(), field.aggre_type(), false);
+    project_oper.add_projection(field.table(), field.meta(), false);
   }
   rc = project_oper.open();
   if (rc != RC::SUCCESS) {
