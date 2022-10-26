@@ -131,7 +131,7 @@ RC AggregateOperator::open()
     {
       cell->set_type(INTS);
       int count = statistics_[i];
-      cell->set_data((char *) 4);
+      cell->set_data((char *) &count);
       cell->set_length(sizeof(int));
       break;
     }
@@ -179,6 +179,62 @@ Tuple *AggregateOperator::current_tuple()
 void AggregateOperator::add_aggregation(Field field)
 {
   TupleCellSpec *spec = new TupleCellSpec(new FieldExpr(field.table(), field.meta()));
+  char *basic_alias;
+  int basic_length;
+  const char *field_name = "*";
+  auto field_meta = field.meta();
+  if (field_meta != nullptr) {
+    field_name = field_meta->name();
+  }
+  // 对单表来说，展示的(alias) 字段总是字段名称，
+  basic_length = strlen(field_name) + 1;
+  basic_alias = (char *)malloc(basic_length);
+  strcpy(basic_alias, field_name);
+  char *aggre_alias = basic_alias;
+  switch (field.aggre_type())
+  {
+  case MAX:
+  {
+    aggre_alias = (char *) malloc(basic_length + 5);
+    strcpy(aggre_alias, "MAX(");
+    strcat(aggre_alias, basic_alias);
+    strcat(aggre_alias, ")");
+    break;
+  }
+  case MIN:
+  {
+    aggre_alias = (char *) malloc(basic_length + 5);
+    strcpy(aggre_alias, "MIN(");
+    strcat(aggre_alias, basic_alias);
+    strcat(aggre_alias, ")");
+    break;
+  }
+  case SUM:
+  {
+    aggre_alias = (char *) malloc(basic_length + 5);
+    strcpy(aggre_alias, "SUM(");
+    strcat(aggre_alias, basic_alias);
+    strcat(aggre_alias, ")");
+    break;
+  }
+  case AVG:
+  {
+    aggre_alias = (char *) malloc(basic_length + 5);
+    strcpy(aggre_alias, "AVG(");
+    strcat(aggre_alias, basic_alias);
+    strcat(aggre_alias, ")");
+    break;
+  }
+  case COUNT:
+  {
+    aggre_alias = (char *) malloc(basic_length + 7);
+    strcpy(aggre_alias, "COUNT(");
+    strcat(aggre_alias, basic_alias);
+    strcat(aggre_alias, ")");
+    break;
+  }
+  }
+  spec->set_alias(aggre_alias);
   tuple_.push_cell_spec(spec);
   aggre_fields_.push_back(field);
 }
