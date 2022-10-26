@@ -173,7 +173,7 @@ void AggregateOperator::output(std::ostream &os) {
     }
     default: // MIN / MAX
     {
-      os << current_cell_[i].data();
+      current_cell_[i].to_string(os);
       // cell->set_type(aggre_fields_[i].attr_type());
       // cell->set_data(current_cell_[i].data());
       // cell->set_length(current_cell_[i].length());
