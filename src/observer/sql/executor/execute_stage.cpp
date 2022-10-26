@@ -32,6 +32,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/predicate_operator.h"
 #include "sql/operator/delete_operator.h"
 #include "sql/operator/project_operator.h"
+#include "sql/operator/aggregate_operator.h"
 #include "sql/operator/cartesian_operator.h"
 #include "sql/stmt/stmt.h"
 #include "sql/stmt/select_stmt.h"
@@ -253,6 +254,25 @@ void print_tuple_header(std::ostream &os, const ProjectOperator &oper)
     os << '\n';
   }
 }
+void print_aggre_header(std::ostream &os, const AggregateOperator &oper)
+{
+  const int cell_num = oper.tuple_cell_num();
+  const TupleCellSpec *cell_spec = nullptr;
+  for (int i = 0; i < cell_num; i++) {
+    oper.tuple_cell_spec_at(i, cell_spec);
+    if (i != 0) {
+      os << " | ";
+    }
+
+    if (cell_spec->alias()) {
+      os << cell_spec->alias();
+    }
+  }
+
+  if (cell_num > 0) {
+    os << '\n';
+  }
+}
 void tuple_to_string(std::ostream &os, const Tuple &tuple)
 {
   TupleCell cell;
@@ -418,7 +438,7 @@ RC do_multi_select(SQLStageEvent *sql_event)
   ProjectOperator project_oper;
   project_oper.add_child(&pred_oper);
   for (const Field &field : select_stmt->query_fields()) {
-    project_oper.add_projection_with_table_name(field.table(), field.meta());
+    project_oper.add_projection(field.table(), field.meta(), true);
   }
   rc = project_oper.open();
   if (rc != RC::SUCCESS) {
@@ -452,6 +472,63 @@ RC do_multi_select(SQLStageEvent *sql_event)
   return rc;
 }
 
+RC do_statistic(SQLStageEvent *sql_event)
+{
+  SelectStmt *select_stmt = (SelectStmt *)(sql_event->stmt());
+  SessionEvent *session_event = sql_event->session_event();
+  RC rc = RC::SUCCESS;
+
+  Operator *scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
+  if (nullptr == scan_oper) {
+    scan_oper = new TableScanOperator(select_stmt->tables()[0]);
+  }
+
+  DEFER([&] () {delete scan_oper;});
+
+  PredicateOperator pred_oper(select_stmt->filter_stmt());
+  pred_oper.add_child(scan_oper);
+
+  AggregateOperator aggre_oper;
+  aggre_oper.add_child(&pred_oper);
+  for (const Field &field : select_stmt->query_fields()) {
+    aggre_oper.add_aggregation(field);
+  }
+
+  rc = aggre_oper.open();
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to open operator");
+    return rc;
+  } 
+
+  std::stringstream ss;
+  print_aggre_header(ss, aggre_oper);
+  aggre_oper.output(ss);
+  ss << std::endl;
+  rc = RC::RECORD_EOF;
+  // while ((rc = aggre_oper.next()) == RC::SUCCESS) {
+  //   // get current record
+  //   // write to response
+  //   Tuple * tuple = aggre_oper.current_tuple();
+  //   if (nullptr == tuple) {
+  //     rc = RC::INTERNAL;
+  //     LOG_WARN("failed to get current record. rc=%s", strrc(rc));
+  //     break;
+  //   }
+  //   tuple_to_string(ss, *tuple);
+  //   ss << std::endl;
+  // }
+  
+
+  if (rc != RC::RECORD_EOF) {
+    LOG_WARN("something wrong while iterate operator. rc=%s", strrc(rc));
+    aggre_oper.close();
+  } else {
+    rc = aggre_oper.close();
+  }
+  session_event->set_response(ss.str());
+  return rc;
+}
+
 RC ExecuteStage::do_select(SQLStageEvent *sql_event)
 {
   SelectStmt *select_stmt = (SelectStmt *)(sql_event->stmt());
@@ -461,6 +538,11 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     // LOG_WARN("select more than 1 tables is not supported");
     // rc = RC::UNIMPLENMENT;
     rc = do_multi_select(sql_event);
+    return rc;
+  }
+
+  if (select_stmt->have_aggregation()) {
+    rc = do_statistic(sql_event);
     return rc;
   }
 
@@ -476,7 +558,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   ProjectOperator project_oper;
   project_oper.add_child(&pred_oper);
   for (const Field &field : select_stmt->query_fields()) {
-    project_oper.add_projection(field.table(), field.meta());
+    project_oper.add_projection(field.table(), field.meta(), false);
   }
   rc = project_oper.open();
   if (rc != RC::SUCCESS) {

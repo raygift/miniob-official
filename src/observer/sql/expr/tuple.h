@@ -73,6 +73,71 @@ public:
   virtual RC  cell_spec_at(int index, const TupleCellSpec *&spec) const = 0;
 };
 
+class SimpleTuple: public Tuple
+{
+public:
+  SimpleTuple() = default;
+  virtual ~SimpleTuple() = default;
+
+  void push_cell(TupleCell cell)
+  {
+    cells_.push_back(cell);
+  }
+
+  void push_cell_spec(TupleCellSpec *spec)
+  {
+    speces_.push_back(spec);
+  }
+
+  int cell_num() const override
+  {
+    return speces_.size();
+  }
+
+  RC  cell_at(int index, TupleCell &cell) const override
+  {
+    if (index < 0 || index >= static_cast<int>(speces_.size())) {
+      LOG_WARN("invalid argument. index=%d", index);
+      return RC::INVALID_ARGUMENT;
+    }
+
+    cell.set_type(cells_[index].attr_type());
+    cell.set_data(cells_[index].data());
+    cell.set_length(cells_[index].length());
+
+    return RC::SUCCESS;
+  }
+
+  RC find_cell(const Field &field, TupleCell &cell) const override
+  {
+    const char *field_name = field.field_name();
+    for (size_t i = 0; i < speces_.size(); ++i) {
+      const FieldExpr * field_expr = (const FieldExpr *)speces_[i]->expression();
+      const Field &field = field_expr->field();
+      if (0 == strcmp(field_name, field.field_name())) {
+        return cell_at(i, cell);
+      }
+    }
+    return RC::NOTFOUND;
+  }
+
+  RC cell_spec_at(int index, const TupleCellSpec *&spec) const override
+  {
+    if (index < 0 || index >= static_cast<int>(speces_.size())) {
+      LOG_WARN("invalid argument. index=%d", index);
+      return RC::INVALID_ARGUMENT;
+    }
+    spec = speces_[index];
+    return RC::SUCCESS;
+  }
+
+
+private:
+  std::vector<TupleCellSpec *> speces_;
+  std::vector<TupleCell> cells_;
+  const Table *table_=nullptr;
+};
+
 class RowTuple : public Tuple
 {
 public:

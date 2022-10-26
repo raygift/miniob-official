@@ -70,6 +70,7 @@ with fileinput.input() as f:
     log_level_warn_color = c.BRed
     log_level_other_color = c.BRed
     log_file_color = c.Blue
+    log_func_color = c.Blue
     log_content_color = c.Black
 
     last_log = log()
@@ -78,7 +79,7 @@ with fileinput.input() as f:
     for line in f:
         # print("###origin###: " + line, end='')
         if line[0] != '[' or len(line.split(" ")) < 4:  # magic number
-            print(not_log_color + line + c.Null, end='')
+            # print(not_log_color + line + c.Null, end='')
             continue
         line = line.replace(']>>', ' ')
         line = line.replace('[', '')
@@ -96,6 +97,9 @@ with fileinput.input() as f:
 
         # print('#'.join(fields))
 
+        if l.file in ["log_reporter.cpp", "mem_pool.h", "thread_pool.cpp"]:
+            continue
+
         if (last_log.date == l.date and last_log.time == l.time) and lc < 10:
             pass
             lc += 1
@@ -106,25 +110,25 @@ with fileinput.input() as f:
 
         wc = 0
         if l.level == 'INFO':
-            print(log_level_info_color + '[INFO] ' + c.Null, end='')
-            wc += 7
+            print(log_level_info_color + '[INFO]' + c.Null, end='')
+            wc += 6
         elif l.level == 'WARNNING':
-            print(log_level_warn_color + '[WARN] ' + c.Null, end='')
-            wc += 7
+            print(log_level_warn_color + '[WARN]' + c.Null, end='')
+            wc += 6
         else:
             print(log_level_other_color + '[' + l.level + ']' + c.Null, end='')
             wc += 2 + len(l.level)
 
         print(log_file_color + l.file +
-              '(' + l.line + ')' + '{' + l.func + '}' + c.Null, end='')
-        wc += len(l.file) + len(l.func) + len(l.line) + 4
+              '(' + l.line + ')' + log_func_color + l.func + c.Null, end='')
+        wc += len(l.file) + len(l.func) + len(l.line) + 3
 
         for _ in range(0, meta_len - wc):
             print(" ", end='')
 
-        if l.content == 'Observer start success':
+        if l.content.find('Observer start success') != -1:
             print(log_level_info_color + l.content + c.Null, end='')
-        elif l.content == 'Shutdown Cleanly!':
+        elif l.content.find('Shutdown Cleanly!') != -1:
             print(log_level_warn_color + l.content + c.Null, end='')
         elif l.level == 'WARNNING':
             print(log_level_warn_color + l.content + c.Null, end='')

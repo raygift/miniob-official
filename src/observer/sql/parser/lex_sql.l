@@ -75,7 +75,15 @@ QUOTE            [\'\"]
 [Dd][Aa][Tt][Ee]                     RETURN_TOKEN(DATE_T);
 [Uu][Nn][Ii][Qq][Uu][Ee]             RETURN_TOKEN(UNIQUE);
 {QUOTE}[0-9]{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01]){QUOTE} yylval->string=strdup(yytext); RETURN_TOKEN(DATE_STR);
+
+[Mm][Aa][Xx]                                         RETURN_TOKEN(MAX_SYM);
+[Mm][Ii][Nn]                                         RETURN_TOKEN(MIN_SYM);
+[Aa][Vv][Gg]                                         RETURN_TOKEN(AVG_SYM);
+[Ss][Uu][Mm]                                         RETURN_TOKEN(SUM_SYM);
+[Cc][Oo][Uu][Nn][Tt]                                 RETURN_TOKEN(COUNT_SYM);
+
 {ID}                                                 yylval->string=strdup(yytext); RETURN_TOKEN(ID);
+
 "("                                                  RETURN_TOKEN(LBRACE);
 ")"                                                  RETURN_TOKEN(RBRACE);
 

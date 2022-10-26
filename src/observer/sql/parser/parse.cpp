@@ -30,6 +30,12 @@ void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const
     relation_attr->relation_name = nullptr;
   }
   relation_attr->attribute_name = strdup(attribute_name);
+  relation_attr->aggre_type = NO_AGGRE;
+}
+
+void relation_attr_set_aggre_type(RelAttr *relation_attr, AggreType aggre_type)
+{
+  relation_attr->aggre_type = aggre_type;
 }
 
 void relation_attr_destroy(RelAttr *relation_attr)

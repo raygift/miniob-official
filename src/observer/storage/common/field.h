@@ -23,14 +23,14 @@ public:
   Field() = default;
   Field(const Table *table, const FieldMeta *field) : table_(table), field_(field)
   {}
+  Field(const Table *table, const FieldMeta *field, AggreType aggre_type) : table_(table), field_(field), aggre_type_(aggre_type)
+  {}
 
   const Table *table() const { return table_; }
   const FieldMeta *meta() const { return field_; }
 
-  AttrType attr_type() const
-  {
-    return field_->type();
-  }
+  AttrType attr_type() const { return field_->type(); }
+  AggreType aggre_type() const { return aggre_type_; }
 
   const char *table_name() const { return table_->name(); }
   const char *field_name() const { return field_->name(); }
@@ -46,4 +46,5 @@ public:
 private:
   const Table *table_ = nullptr;
   const FieldMeta *field_ = nullptr;
+  const AggreType aggre_type_ = NO_AGGRE;
 };

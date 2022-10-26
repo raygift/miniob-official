@@ -59,37 +59,38 @@ RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
 
     Value new_val;
     if (field_type == value_type) {
-      new_val = values[i];
+      // do nothing
     } else if (value_type == INTS && field_type == FLOATS) {
       float new_data = *(int*)values[i].data;
-      value_init_float(&new_val, new_data);
+      memcpy(values[i].data, &new_data, sizeof(new_data));
     } else if (value_type == FLOATS && field_type == INTS) {
       int new_data = std::round(*(float *)values[i].data);
-      value_init_integer(&new_val, new_data);
+      memcpy(values[i].data, &new_data, sizeof(new_data));
     } else if (value_type == CHARS && field_type == INTS) {
       int new_data = std::atoi((char *)values[i].data);
-      value_init_integer(&new_val, new_data);
+      memcpy(values[i].data, &new_data, sizeof(new_data));
     } else if (value_type == INTS && field_type == CHARS) {
       char new_data[sizeof(int)];
       sprintf(new_data, "%d", *(int *)values[i].data);
-      value_init_string(&new_val, new_data);
+      memcpy(values[i].data, &new_data, sizeof(int));
     } else if (value_type == CHARS && field_type == FLOATS) {
       float new_data = std::atof((char *)values[i].data);
-      value_init_float(&new_val, new_data);
+      memcpy(values[i].data, &new_data, sizeof(new_data));
     } else if (value_type == FLOATS && field_type == CHARS) {
       char new_data[sizeof(float)];
       sprintf(new_data, "%g", *(float *)values[i].data);
-      value_init_string(&new_val, new_data);
+      memcpy(values[i].data, &new_data, sizeof(float));
     } else {
       LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d", 
                table_name, field_meta->name(), field_type, value_type);
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
-
-    new_values[i] = new_val;
+    // values[i].type = field_type;
+    memcpy((void *)&values[i].type, &field_type, sizeof(field_type));
   }
 
   // everything alright
-  stmt = new InsertStmt(table, new_values, value_num);
+  stmt = new InsertStmt(table, values, value_num);
+  // stmt = new InsertStmt(table, values, value_num);
   return RC::SUCCESS;
 }
