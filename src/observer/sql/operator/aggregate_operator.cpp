@@ -148,35 +148,39 @@ void AggregateOperator::output(std::ostream &os) {
     {
     case AVG:
     {
-      cell->set_type(FLOATS);
       statistics_[i] = statistics_[i] / total_row_count_;
-      cell->set_data((char *) &statistics_[i]);
-      cell->set_length(sizeof(float));
+      os << statistics_[i];
+      // cell->set_type(FLOATS);
+      // cell->set_data((char *) &statistics_[i]);
+      // cell->set_length(sizeof(float));
       break;
     }
     case SUM: {
-      cell->set_type(FLOATS);
-      cell->set_data((char *) &statistics_[i]);
-      cell->set_length(sizeof(float));
+      os << statistics_[i];
+      // cell->set_type(FLOATS);
+      // cell->set_data((char *) &statistics_[i]);
+      // cell->set_length(sizeof(float));
       break;
     }
     case COUNT:
     {
-      cell->set_type(INTS);
       int count = statistics_[i];
-      cell->set_data((char *) &count);
-      cell->set_length(sizeof(int));
+      os << count;
+      // cell->set_type(INTS);
+      // cell->set_data((char *) &count);
+      // cell->set_length(sizeof(int));
       break;
     }
     default: // MIN / MAX
     {
-      cell->set_type(aggre_fields_[i].attr_type());
-      cell->set_data(current_cell_[i].data());
-      cell->set_length(current_cell_[i].length());
+      os << current_cell_[i].data();
+      // cell->set_type(aggre_fields_[i].attr_type());
+      // cell->set_data(current_cell_[i].data());
+      // cell->set_length(current_cell_[i].length());
       break;
     }
     }
-    cell->to_string(os);
+    // cell->to_string(os);
     tuple_.push_cell(*cell);
   }
 }
