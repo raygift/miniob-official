@@ -108,8 +108,41 @@ RC AggregateOperator::open()
     total_row_count_ ++;
   }
 
+
+  remain_result_ = true;
+  if ( total_row_count_ == 0 ) {
+    remain_result_= false;
+    return RC::SUCCESS;
+  }
+
+  return RC::SUCCESS;
+}
+
+RC AggregateOperator::next()
+{
+  if (remain_result_) {
+    remain_result_ = false;
+    return RC::SUCCESS;
+  } else {
+    return RC::RECORD_EOF;
+  }
+} 
+
+RC AggregateOperator::close()
+{
+  children_[0]->close();
+  return RC::SUCCESS;
+}
+
+void AggregateOperator::output(std::ostream &os) {
+  bool first_field = true;
   // post-process statistic value
   for (int i = 0 ; i < aggre_fields_.size() ; i++) {
+    if (!first_field) {
+      os << " | ";
+    } else {
+      first_field = false;
+    }
     TupleCell *cell = new TupleCell();
     switch (aggre_fields_[i].aggre_type())
     {
@@ -143,32 +176,9 @@ RC AggregateOperator::open()
       break;
     }
     }
+    cell->to_string(os);
     tuple_.push_cell(*cell);
   }
-
-  remain_result_ = true;
-  if ( total_row_count_ == 0 ) {
-    remain_result_= false;
-    return RC::SUCCESS;
-  }
-
-  return RC::SUCCESS;
-}
-
-RC AggregateOperator::next()
-{
-  if (remain_result_) {
-    remain_result_ = false;
-    return RC::SUCCESS;
-  } else {
-    return RC::RECORD_EOF;
-  }
-} 
-
-RC AggregateOperator::close()
-{
-  children_[0]->close();
-  return RC::SUCCESS;
 }
 
 Tuple *AggregateOperator::current_tuple()
