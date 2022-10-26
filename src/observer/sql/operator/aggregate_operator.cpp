@@ -12,6 +12,7 @@ See the Mulan PSL v2 for more details. */
 // Created by WangYunlai on 2022/07/01.
 //
 #include <cmath>
+#include <iomanip>
 
 #include "common/log/log.h"
 #include "sql/operator/aggregate_operator.h"
@@ -149,7 +150,10 @@ void AggregateOperator::output(std::ostream &os) {
     case AVG:
     {
       statistics_[i] = statistics_[i] / total_row_count_;
-      os << statistics_[i];
+      char buffer[100];
+      sprintf(buffer, "%.2f", statistics_[i]);
+      sprintf(buffer, "%g", std::atof(buffer));
+      os << buffer;
       // cell->set_type(FLOATS);
       // cell->set_data((char *) &statistics_[i]);
       // cell->set_length(sizeof(float));
