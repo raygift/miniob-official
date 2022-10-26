@@ -24,5 +24,7 @@ static constexpr const char *TABLE_INDEX_SUFFIX = ".index";
 std::string table_meta_file(const char *base_dir, const char *table_name);
 std::string table_data_file(const char *base_dir, const char *table_name);
 std::string table_index_file(const char *base_dir, const char *table_name, const char *index_name);
+std::string table_leaf_index_file(const char *base_dir, const char *table_name, const char *index_name,
+    const char *upper_arrtibute_name, const char *upper_record);
 
 #endif  //__OBSERVER_STORAGE_COMMON_META_UTIL_H_

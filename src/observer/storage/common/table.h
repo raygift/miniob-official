@@ -75,6 +75,15 @@ public:
 
   RC create_index(Trx *trx, const char *index_name, const char *attribute_name, int is_unique);
   RC create_multi_index(Trx *trx, const char *index_name, const AttrInfo attributes[]);
+
+  RC create_internal_index(Trx *trx, const char *index_name, const AttrInfo attributes[]);
+
+  /** 由于多列索引需要 B+Tree 的叶子节点嵌套 B+Tree 来实现
+   *  最后一列属性对应的索引称为 leaf index
+   */
+  RC create_leaf_index(Trx *trx, const char *index_name, const char *upper_record_value,
+      const AttrInfo attributes[]);
+  
   RC get_record_scanner(RecordFileScanner &scanner);
 
   RecordFileHandler *record_handler() const
@@ -112,6 +121,8 @@ private:
   friend class RecordDeleter;
 
   RC insert_entry_of_indexes(const char *record, const RID &rid);
+  RC insert_entry_of_m_indexes(const char *record, const RID &rid);
+
   RC delete_entry_of_indexes(const char *record, const RID &rid, bool error_on_not_exists);
   RC update_entry_of_indexes(const Record *record, const Record *new_record);
 
@@ -132,6 +143,7 @@ private:
   DiskBufferPool *data_buffer_pool_ = nullptr;   /// 数据文件关联的buffer pool
   RecordFileHandler *record_handler_ = nullptr;  /// 记录操作
   std::vector<Index *> indexes_;
+  std::vector<IndexMulti *> m_indexes_; // 表上的多列索引
   bool destroied_ = false;
 };
 

@@ -1084,11 +1084,12 @@ bool BplusTreeHandler::is_empty() const
   return file_header_.root_page == BP_INVALID_PAGE_NUM;
 }
 
+// 在 B+Tree 中从根节点向下找到 key 可能存在的叶子节点
 RC BplusTreeHandler::find_leaf(const char *key, Frame *&frame)
 {
   return find_leaf_internal(
 			    [&](InternalIndexNodeHandler &internal_node) {
-			      return internal_node.value_at(internal_node.lookup(key_comparator_, key));
+			      return internal_node.value_at(internal_node.lookup(key_comparator_, key));// 传入key 比较器和key 本身，从内部节点中找到不小于 key 的key值，并返回该值存在于节点的编号
 			    },
 			    frame);
 }
@@ -1126,18 +1127,22 @@ RC BplusTreeHandler::find_leaf_internal(const std::function<PageNum(InternalInde
   }
 
   IndexNode *node = (IndexNode *)frame->data();
-  while (false == node->is_leaf) {
-    InternalIndexNodeHandler internal_node(file_header_, frame);
+  while (false == node->is_leaf) {// 从根节点开始循环遍历，检查当前节点是否为叶子节点，若不是则继续遍历其子节点
+    InternalIndexNodeHandler internal_node(file_header_, frame);// 当前节点为内部节点
+    // 在当前内部节点中，
+    // 遍历找到不小于 find_leaf(key, ...) 传入 key 值的 key，
+    // 并得到该 key 所对应的value，
+    // 也即下一层被查找子节点的page_num
     PageNum page_num = child_page_getter(internal_node);
 
     disk_buffer_pool_->unpin_page(frame);
 
-    rc = disk_buffer_pool_->get_this_page(page_num, &frame);
+    rc = disk_buffer_pool_->get_this_page(page_num, &frame);// 再根据子节点的 page_num 读取到子节点
     if (rc != RC::SUCCESS) {
       LOG_WARN("Failed to load page page_num:%d", page_num);
       return rc;
     }
-    node = (IndexNode *)frame->data();
+    node = (IndexNode *)frame->data();// 并将子节点作为当前节点，返回到 while 循环开始处再次检查是否查找到了叶子结点
   }
 
   return RC::SUCCESS;
@@ -1316,23 +1321,28 @@ RC BplusTreeHandler::split(Frame *frame, Frame *&new_frame)
   return RC::SUCCESS;
 }
 
+// .index 文件的 header 部分记录了 B+Tree 的root_page
+// 更新为当前 file_header_ 所记录的 B+Tree 的 root_page
 RC BplusTreeHandler::update_root_page_num()
 {
   Frame * header_frame;
-  RC rc = disk_buffer_pool_->get_this_page(FIRST_INDEX_PAGE, &header_frame);
+  RC rc = disk_buffer_pool_->get_this_page(FIRST_INDEX_PAGE, &header_frame);// 读取.index 文件的首个 page
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to fetch header page. rc=%d:%s", rc, strrc(rc));
     return rc;
   }
 
-  IndexFileHeader *header = (IndexFileHeader *)header_frame->data();
-  header->root_page = file_header_.root_page;
+  IndexFileHeader *header = (IndexFileHeader *)header_frame->data();// 获得.index 文件头的数据部分
+  header->root_page = file_header_.root_page;// 文件头的数据部分记录了 B+Tree 的 root_page，更新为新创建的 B+Tree 的 root_page
   header_frame->mark_dirty();
   disk_buffer_pool_->unpin_page(header_frame);
   return rc;
 }
 
-
+// 创建一棵新的 B+ Tree
+// 从 disk_buffer_pool_ 对应的文件中获得空闲页 page，并将页加载到内存 frame
+// 创建 B+Tree 的叶子节点，并将 key,rid 存入叶子节点
+// 并更新 .index 文件 header 部分记录的 B+Tree 的 root_page
 RC BplusTreeHandler::create_new_tree(const char *key, const RID *rid)
 {
   RC rc = RC::SUCCESS;
@@ -1351,12 +1361,12 @@ RC BplusTreeHandler::create_new_tree(const char *key, const RID *rid)
 
   LeafIndexNodeHandler leaf_node(file_header_, frame);
   leaf_node.init_empty();
-  leaf_node.insert(0, key, (const char *)rid);
-  file_header_.root_page = frame->page_num();
-  frame->mark_dirty();
+  leaf_node.insert(0, key, (const char *)rid);  // 将 key,rid 存入叶子节点中 key0,rid0 位置
+  file_header_.root_page = frame->page_num();  // 当前 frame 对应的 page_num 被即为 root_page
+  frame->mark_dirty();                       // 标记frame 写入了数据需要后续刷盘
   disk_buffer_pool_->unpin_page(frame);
 
-  rc = update_root_page_num();
+  rc = update_root_page_num(); // 将.index 文件的 header 部分记录的 root_page 更新为 file_header_.root_page 
   // disk_buffer_pool_->check_all_pages_unpinned(file_id_);
   return rc;
 }
@@ -1391,21 +1401,21 @@ RC BplusTreeHandler::insert_entry(const char *user_key, const RID *rid)
     return RC::NOMEM;
   }
 
-  if (is_empty()) {
-    RC rc = create_new_tree(key, rid);
+  if (is_empty()) {// 若 file_header_.root_page 没有记录合法 page_num，则认为 B+Tree 不存在
+    RC rc = create_new_tree(key, rid);// 创建 B+Tree 并将 key,rid 存入树中唯一叶子节点
     mem_pool_item_->free(key);
     return rc;
   }
-
+// 若已经存在一棵 B+Tree
   Frame *frame;
-  RC rc = find_leaf(key, frame);
+  RC rc = find_leaf(key, frame);// 找到 key 可能存在的叶子节点
   if (rc != RC::SUCCESS) {
     LOG_WARN("Failed to find leaf %s. rc=%d:%s", rid->to_string().c_str(), rc, strrc(rc));
     mem_pool_item_->free(key);
     return rc;
   }
 
-  rc = insert_entry_into_leaf_node(frame, key, rid);
+  rc = insert_entry_into_leaf_node(frame, key, rid);// 将 key 插入该叶子节点中，插入时可能存在节点分裂等情况
   if (rc != RC::SUCCESS) {
     LOG_TRACE("Failed to insert into leaf of index, rid:%s", rid->to_string().c_str());
     disk_buffer_pool_->unpin_page(frame);

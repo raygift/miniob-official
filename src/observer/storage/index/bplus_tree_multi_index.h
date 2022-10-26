@@ -12,18 +12,19 @@ See the Mulan PSL v2 for more details. */
 // Created by Meiyi & wangyunlai.wyl on 2021/5/19.
 //
 
-#ifndef __OBSERVER_STORAGE_COMMON_BPLUS_TREE_INDEX_H_
-#define __OBSERVER_STORAGE_COMMON_BPLUS_TREE_INDEX_H_
+#ifndef __OBSERVER_STORAGE_COMMON_BPLUS_TREE_MULTI_INDEX_H_
+#define __OBSERVER_STORAGE_COMMON_BPLUS_TREE_MULTI_INDEX_H_
 
 #include "storage/index/index.h"
+#include "storage/index/index_multi.h"
 #include "storage/index/bplus_tree.h"
 
-class BplusTreeIndex : public Index {
+class BplusTreeMultiIndex : public Index {
 public:
-  BplusTreeIndex() = default;
-  virtual ~BplusTreeIndex() noexcept;
+  BplusTreeMultiIndex() = default;
+  virtual ~BplusTreeMultiIndex() noexcept;
 
-  RC create(const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta);
+  RC create(const char *file_name, const IndexMultiMeta &index_meta, std::vector<FieldMeta*> fields_meta);
   RC open(const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta);
   RC close();
 
@@ -40,22 +41,8 @@ public:
 
 private:
   bool inited_ = false;
-  // BplusTreeHandler 用于提供 B+ 树相关操作，针对 index 的 create、insert_entry 等操作都需要 B+树 执行对应操作
-  BplusTreeHandler index_handler_;
+  std::vector<BplusTreeHandler> index_handlers_;
 };
 
-class BplusTreeIndexScanner : public IndexScanner {
-public:
-  BplusTreeIndexScanner(BplusTreeHandler &tree_handle);
-  ~BplusTreeIndexScanner() noexcept override;
 
-  RC next_entry(RID *rid) override;
-  RC destroy() override;
-
-  RC open(const char *left_key, int left_len, bool left_inclusive,
-          const char *right_key, int right_len, bool right_inclusive);
-private:
-  BplusTreeScanner tree_scanner_;
-};
-
-#endif  //__OBSERVER_STORAGE_COMMON_BPLUS_TREE_INDEX_H_
+#endif  //__OBSERVER_STORAGE_COMMON_BPLUS_TREE_MULTI_INDEX_H_
