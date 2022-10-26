@@ -12,7 +12,6 @@ See the Mulan PSL v2 for more details. */
 // Created by WangYunlai on 2022/07/01.
 //
 #include <cmath>
-#include <iomanip>
 
 #include "common/log/log.h"
 #include "sql/operator/aggregate_operator.h"
@@ -33,16 +32,20 @@ RC AggregateOperator::open()
     return rc;
   }
 
-  // pre-process: init statistics and first cell
   for (int i = 0 ; i < aggre_fields_.size() ; i++) {
     current_cell_.push_back(TupleCell());
     statistics_.push_back(0);
   }
-  
+
+  return RC::SUCCESS;
+}
+
+RC AggregateOperator::next()
+{
+  RC rc = RC::SUCCESS;
+  Operator *child = children_[0];
   //  scan all record and statistic
   while ((rc = child->next()) == RC::SUCCESS) {
-    // get current record
-    // write to response
     Tuple * tuple = child->current_tuple();
     if (nullptr == tuple) {
       rc = RC::INTERNAL;
@@ -51,76 +54,36 @@ RC AggregateOperator::open()
     }
 
     for (int i = 0 ; i < aggre_fields_.size() ; i++) {
+      Field aggre_field = aggre_fields_[i];
+      AggreType aggre_type =  aggre_field.aggre_type();
+      if (aggre_type == COUNT) {
+        statistics_[i]++; // XXX: for now miniob doesn't have NULL values
+        continue;
+      } 
       TupleCell cell;
-      auto aggre_field = aggre_fields_[i];
-      float new_data;
-      // update statistic value
-      switch (aggre_field.aggre_type())
-      {
-      case MAX: {
-        tuple->find_cell(aggre_field, cell); // compare the statistic
-        if (current_cell_[i].data() == nullptr || current_cell_[i].compare(cell) <= 0)
+      tuple->find_cell(aggre_field, cell); // compare the statistic
+      if ( ( aggre_type == MAX && (current_cell_[i].data() == nullptr || current_cell_[i].compare(cell) <= 0)) ||
+          ( aggre_type == MIN && (current_cell_[i].data() == nullptr || current_cell_[i].compare(cell) >= 0)) )
           current_cell_[i] = cell;
-        break;
-      }
-      case MIN:
-      {
-        tuple->find_cell(aggre_field, cell); // compare the statistic
-        if (current_cell_[i].data() == nullptr || current_cell_[i].compare(cell) >= 0)
-          current_cell_[i] = cell;
-        break;
-      }
-      case AVG:
-      {
-        tuple->find_cell(aggre_field, cell);
-        switch (cell.attr_type())
-        {
-        case INTS: new_data = *(int *)cell.data(); break;
-        case FLOATS: new_data = *(float *)cell.data(); break;
-        case CHARS: new_data = std::atof((char *)cell.data()); break;
-        default: new_data = 0; break; // TODO: 
+      else if ( aggre_type == SUM || aggre_type == AVG ) {
+        float new_data;
+        switch (cell.attr_type()) {
+          case INTS:   new_data = *(int *)cell.data(); break;
+          case FLOATS: new_data = *(float *)cell.data(); break;
+          case CHARS:  new_data = std::atof((char *)cell.data()); break;
+          default:     new_data = 0; break; // TODO: 
         }
         statistics_[i] += new_data; 
-        break;
-      }
-      case SUM:
-      {
-        tuple->find_cell(aggre_field, cell);
-        switch (cell.attr_type())
-        {
-        case INTS: new_data = *(int *)cell.data(); break;
-        case FLOATS: new_data = *(float *)cell.data(); break;
-        case CHARS: new_data = std::atof((char *)cell.data()); break;
-        default: new_data = 0; break; // TODO:
-        }
-        // new_data = cell.compare(zero_cell);
-        statistics_[i] += new_data; 
-        break;
-      }
-      case COUNT:
-      {
-        // XXX: miniob doesn't have NULL values
-        statistics_[i]++; 
-        break;
-      }
-      default: break;
       }
     }
     total_row_count_ ++;
   }
-
-
-  remain_result_ = true;
-  if ( total_row_count_ == 0 ) {
-    remain_result_= false;
-    return RC::SUCCESS;
+  if (rc != RC::RECORD_EOF) {
+    return rc;
+  } 
+  if (total_row_count_ == 0) {
+    remain_result_ = false;
   }
-
-  return RC::SUCCESS;
-}
-
-RC AggregateOperator::next()
-{
   if (remain_result_) {
     remain_result_ = false;
     return RC::SUCCESS;
@@ -135,16 +98,10 @@ RC AggregateOperator::close()
   return RC::SUCCESS;
 }
 
-void AggregateOperator::output(std::ostream &os) {
-  bool first_field = true;
+Tuple *AggregateOperator::current_tuple()
+{
   // post-process statistic value
   for (int i = 0 ; i < aggre_fields_.size() ; i++) {
-    if (!first_field) {
-      os << " | ";
-    } else {
-      first_field = false;
-    }
-    TupleCell *cell = new TupleCell();
     switch (aggre_fields_[i].aggre_type())
     {
     case AVG:
@@ -153,44 +110,36 @@ void AggregateOperator::output(std::ostream &os) {
       char buffer[100];
       sprintf(buffer, "%.2f", statistics_[i]);
       sprintf(buffer, "%g", std::atof(buffer));
-      os << buffer;
-      // cell->set_type(FLOATS);
-      // cell->set_data((char *) &statistics_[i]);
-      // cell->set_length(sizeof(float));
+      float avg = std::atof(buffer);
+      current_cell_[i].set_type(FLOATS);
+      current_cell_[i].set_data((char *) &avg);
+      current_cell_[i].set_length(sizeof(float));
       break;
     }
     case SUM: {
-      os << statistics_[i];
-      // cell->set_type(FLOATS);
-      // cell->set_data((char *) &statistics_[i]);
-      // cell->set_length(sizeof(float));
+      current_cell_[i].set_type(FLOATS);
+      current_cell_[i].set_data((char *) &statistics_[i]);
+      current_cell_[i].set_length(sizeof(float));
       break;
     }
     case COUNT:
     {
       int count = statistics_[i];
-      os << count;
-      // cell->set_type(INTS);
-      // cell->set_data((char *) &count);
-      // cell->set_length(sizeof(int));
+      current_cell_[i].set_type(INTS);
+      current_cell_[i].set_data((char *) &count);
+      current_cell_[i].set_length(sizeof(int));
       break;
     }
     default: // MIN / MAX
     {
-      current_cell_[i].to_string(os);
-      // cell->set_type(aggre_fields_[i].attr_type());
-      // cell->set_data(current_cell_[i].data());
-      // cell->set_length(current_cell_[i].length());
+      current_cell_[i].set_type(aggre_fields_[i].attr_type());
+      current_cell_[i].set_data(current_cell_[i].data());
+      current_cell_[i].set_length(current_cell_[i].length());
       break;
     }
     }
-    // cell->to_string(os);
-    tuple_.push_cell(*cell);
+    tuple_.push_cell(current_cell_[i]);
   }
-}
-
-Tuple *AggregateOperator::current_tuple()
-{
   return &tuple_;
 }
 

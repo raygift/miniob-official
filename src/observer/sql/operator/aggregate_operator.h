@@ -40,12 +40,11 @@ public:
 
   Tuple * current_tuple() override;
 
-  void output(std::ostream &os);
 private:
   SimpleTuple tuple_;
   std::vector<Field> aggre_fields_;
   std::vector<TupleCell> current_cell_;
   std::vector<float> statistics_;
   int total_row_count_ = 0;
-  bool remain_result_ = false;
+  bool remain_result_ = true;
 };

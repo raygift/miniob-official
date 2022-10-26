@@ -498,24 +498,18 @@ RC do_statistic(SQLStageEvent *sql_event)
 
   std::stringstream ss;
   print_aggre_header(ss, aggre_oper);
-  aggre_oper.output(ss);
-  ss << std::endl;
-  rc = RC::RECORD_EOF;
-  // while ((rc = aggre_oper.next()) == RC::SUCCESS) {
-  //   // get current record
-  //   // write to response
-  //   Tuple * tuple = aggre_oper.current_tuple();
-  //   if (nullptr == tuple) {
-  //     rc = RC::INTERNAL;
-  //     LOG_WARN("failed to get current record. rc=%s", strrc(rc));
-  //     break;
-  //   }
-  //   tuple_to_string(ss, *tuple);
-  //   ss << std::endl;
-  // }
-  
-
-  if (rc != RC::RECORD_EOF) {
+  while ((rc = aggre_oper.next()) == RC::SUCCESS) {
+    // get current record, write to response
+    Tuple * tuple = aggre_oper.current_tuple();
+    if (nullptr == tuple) {
+      rc = RC::INTERNAL;
+      LOG_WARN("failed to get current record. rc=%s", strrc(rc));
+      break;
+    }
+    tuple_to_string(ss, *tuple);
+    ss << std::endl;
+  }
+  if (rc == RC::RECORD_EOF) {
     LOG_WARN("something wrong while iterate operator. rc=%s", strrc(rc));
     aggre_oper.close();
   } else {
