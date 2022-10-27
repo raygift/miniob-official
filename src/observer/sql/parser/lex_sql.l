@@ -28,7 +28,8 @@ DIGIT            [0-9]+
 
 ID               [A-Za-z_]+[A-Za-z0-9_]*
 DOT              \.
-QUOTE            [\'\"]
+SINGLE_QUOTE            [\']
+DOUBLE_QUOTE            [\"]
 %x STR
 
 %%
@@ -73,7 +74,8 @@ QUOTE            [\'\"]
 [Dd][Aa][Tt][Aa]                                     RETURN_TOKEN(DATA);
 [Ii][Nn][Ff][Ii][Ll][Ee]                             RETURN_TOKEN(INFILE);
 [Dd][Aa][Tt][Ee]                     RETURN_TOKEN(DATE_T);
-{QUOTE}[0-9]{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01]){QUOTE} yylval->string=strdup(yytext); RETURN_TOKEN(DATE_STR);
+{SINGLE_QUOTE}[0-9]{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01]){SINGLE_QUOTE} yylval->string=strdup(yytext); RETURN_TOKEN(DATE_STR);
+{DOUBLE_QUOTE}[0-9]{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01]){DOUBLE_QUOTE} yylval->string=strdup(yytext); RETURN_TOKEN(DATE_STR);
 
 [Mm][Aa][Xx]                                         RETURN_TOKEN(MAX_SYM);
 [Mm][Ii][Nn]                                         RETURN_TOKEN(MIN_SYM);
@@ -98,7 +100,8 @@ QUOTE            [\'\"]
 ">="                                                 RETURN_TOKEN(GE);
 ">"                                                  RETURN_TOKEN(GT);
 
-{QUOTE}[\40\42\47A-Za-z0-9_/\.\-\_\%]*{QUOTE}            yylval->string=strdup(yytext); RETURN_TOKEN(SSS);
+{SINGLE_QUOTE}[\40\42A-Za-z0-9_/\.\-\%]*{SINGLE_QUOTE}            yylval->string=strdup(yytext); RETURN_TOKEN(SSS);
+{DOUBLE_QUOTE}[\40\47A-Za-z0-9_/\.\-\%]*{DOUBLE_QUOTE}            yylval->string=strdup(yytext); RETURN_TOKEN(SSS);
 
 .                                                    printf("Unknown character [%c]\n",yytext[0]); return yytext[0];
 %%
