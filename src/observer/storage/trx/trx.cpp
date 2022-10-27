@@ -41,8 +41,8 @@ void Trx::set_trx_id(int32_t id)
 
 void Trx::next_current_id()
 {
-  // fixed: 事务编号自增之前，首先完成当前事务的提交
-  Trx::commit();
+  // // fixed: 事务编号自增之前，首先完成当前事务的提交
+  // Trx::commit();
   Trx::next_trx_id();
   trx_id_ = trx_id;
 }
@@ -179,6 +179,9 @@ RC Trx::commit()
   RC rc = RC::SUCCESS;
   for (const auto &table_operations : operations_) {
     Table *table = table_operations.first;
+    if (table->is_destroied()){
+      continue;
+    }
     const OperationSet &operation_set = table_operations.second;
     for (const Operation &operation : operation_set) {
 

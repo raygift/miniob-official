@@ -1,7 +1,6 @@
 #! /bin/sh
 
 
-build/bin/obclient << EOF
 
 
 exit

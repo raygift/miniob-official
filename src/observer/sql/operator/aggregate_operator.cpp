@@ -12,6 +12,7 @@ See the Mulan PSL v2 for more details. */
 // Created by WangYunlai on 2022/07/01.
 //
 #include <cmath>
+#include <iomanip>
 
 #include "common/log/log.h"
 #include "sql/operator/aggregate_operator.h"
@@ -96,6 +97,60 @@ RC AggregateOperator::close()
 {
   children_[0]->close();
   return RC::SUCCESS;
+}
+
+void AggregateOperator::output(std::ostream &os) {
+  bool first_field = true;
+  // post-process statistic value
+  for (int i = 0 ; i < aggre_fields_.size() ; i++) {
+    if (!first_field) {
+      os << " | ";
+    } else {
+      first_field = false;
+    }
+    TupleCell *cell = new TupleCell();
+    switch (aggre_fields_[i].aggre_type())
+    {
+    case AVG:
+    {
+      statistics_[i] = statistics_[i] / total_row_count_;
+      char buffer[100];
+      sprintf(buffer, "%.2f", statistics_[i]);
+      sprintf(buffer, "%g", std::atof(buffer));
+      os << buffer;
+      // cell->set_type(FLOATS);
+      // cell->set_data((char *) &statistics_[i]);
+      // cell->set_length(sizeof(float));
+      break;
+    }
+    case SUM: {
+      os << statistics_[i];
+      // cell->set_type(FLOATS);
+      // cell->set_data((char *) &statistics_[i]);
+      // cell->set_length(sizeof(float));
+      break;
+    }
+    case COUNT:
+    {
+      int count = statistics_[i];
+      os << count;
+      // cell->set_type(INTS);
+      // cell->set_data((char *) &count);
+      // cell->set_length(sizeof(int));
+      break;
+    }
+    default: // MIN / MAX
+    {
+      current_cell_[i].to_string(os);
+      // cell->set_type(aggre_fields_[i].attr_type());
+      // cell->set_data(current_cell_[i].data());
+      // cell->set_length(current_cell_[i].length());
+      break;
+    }
+    }
+    // cell->to_string(os);
+    tuple_.push_cell(*cell);
+  }
 }
 
 Tuple *AggregateOperator::current_tuple()
