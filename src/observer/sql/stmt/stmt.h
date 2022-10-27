@@ -40,6 +40,7 @@ enum class StmtType
   EXIT,
 
   PREDICATE,
+  SHOW_INDEX,
 };
 
 class Stmt 

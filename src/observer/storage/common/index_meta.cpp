@@ -35,6 +35,19 @@ RC IndexMeta::init(const char *name, const FieldMeta &field)
   return RC::SUCCESS;
 }
 
+RC IndexMeta::init(const char *name, const FieldMeta &field, int is_unique)
+{
+  if (common::is_blank(name)) {
+    LOG_ERROR("Failed to init index, name is empty.");
+    return RC::INVALID_ARGUMENT;
+  }
+
+  name_ = name;
+  field_ = field.name();
+  is_unique_ = is_unique;
+  return RC::SUCCESS;
+}
+
 void IndexMeta::to_json(Json::Value &json_value) const
 {
   json_value[FIELD_NAME] = name_;
@@ -74,6 +87,11 @@ const char *IndexMeta::name() const
 const char *IndexMeta::field() const
 {
   return field_.c_str();
+}
+
+const int IndexMeta::is_unique()
+{
+  return is_unique_;
 }
 
 void IndexMeta::desc(std::ostream &os) const

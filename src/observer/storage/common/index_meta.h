@@ -30,10 +30,12 @@ public:
   IndexMeta() = default;
 
   RC init(const char *name, const FieldMeta &field);
+  RC init(const char *name, const FieldMeta &field, int is_unique);
 
 public:
   const char *name() const;
   const char *field() const;
+  const int is_unique();
 
   void desc(std::ostream &os) const;
 
@@ -44,5 +46,7 @@ public:
 protected:
   std::string name_;   // index's name
   std::string field_;  // field's name
+  int is_unique_;
+  // std::vector<std::string> multi_filed_;
 };
 #endif  // __OBSERVER_STORAGE_COMMON_INDEX_META_H__

@@ -12,6 +12,7 @@ See the Mulan PSL v2 for more details. */
 // Created by WangYunlai on 2022/07/01.
 //
 #include <cmath>
+#include <iomanip>
 
 #include "common/log/log.h"
 #include "sql/operator/aggregate_operator.h"
@@ -97,6 +98,7 @@ RC AggregateOperator::close()
   children_[0]->close();
   return RC::SUCCESS;
 }
+
 
 Tuple *AggregateOperator::current_tuple()
 {

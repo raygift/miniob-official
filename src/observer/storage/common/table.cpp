@@ -165,7 +165,7 @@ RC Table::destroy(const char *path)
     }
     // index 文件删除
   }
-
+  destroied_ = true;
   return RC::SUCCESS;
 }
 
@@ -598,7 +598,7 @@ static RC insert_index_record_reader_adapter(Record *record, void *context)
   return inserter.insert_index(record);
 }
 
-RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_name)
+RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_name, int is_unique)
 {
   if (common::is_blank(index_name) || common::is_blank(attribute_name)) {
     LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attribute_name is blank", name());
@@ -617,7 +617,7 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
   }
 
   IndexMeta new_index_meta;
-  RC rc = new_index_meta.init(index_name, *field_meta);
+  RC rc = new_index_meta.init(index_name, *field_meta, is_unique);
   if (rc != RC::SUCCESS) {
     LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s, field_name:%s",
              name(), index_name, attribute_name);
@@ -686,6 +686,13 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
 
   return rc;
 }
+
+RC Table::create_multi_index(Trx *trx, const char *index_name, const AttrInfo attributes[])
+{
+  LOG_WARN("TODO");
+  return RC::SUCCESS;
+}
+
 
 RC Table::update_record_data(Record *old_record,  const char *attribute_name, const Value *values)
 {
@@ -1017,6 +1024,15 @@ Index *Table::find_index_by_field(const char *field_name) const
     return this->find_index(index_meta->name());
   }
   return nullptr;
+}
+
+const std::vector<Index *> *Table::find_all_index()
+{
+  return &indexes_;
+}
+
+bool Table::is_destroied(){
+  return destroied_;
 }
 
 IndexScanner *Table::find_index_for_scan(const DefaultConditionFilter &filter)

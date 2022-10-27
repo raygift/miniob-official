@@ -84,6 +84,7 @@ ParserContext *get_context(yyscan_t scanner)
         STRING_T
         FLOAT_T
 		DATE_T
+		UNIQUE
         HELP
         EXIT
         DOT //QUOTE
@@ -154,6 +155,7 @@ command:
 	| desc_table
 	| create_index	
 	| drop_index
+	| show_index
 	| sync
 	| begin
 	| commit
@@ -209,6 +211,13 @@ show_tables:
     }
     ;
 
+show_index:
+    SHOW INDEX FROM ID SEMICOLON {
+      CONTEXT->ssql->flag = SCF_SHOW_INDEX;
+      show_index_init(&CONTEXT->ssql->sstr.show_index, $4);
+    }
+    ;
+
 desc_table:
     DESC ID SEMICOLON {
       CONTEXT->ssql->flag = SCF_DESC_TABLE;
@@ -220,9 +229,33 @@ create_index:		/*create index 语句的语法解析树*/
     CREATE INDEX ID ON ID LBRACE ID RBRACE SEMICOLON 
 		{
 			CONTEXT->ssql->flag = SCF_CREATE_INDEX;//"create_index";
-			create_index_init(&CONTEXT->ssql->sstr.create_index, $3, $5, $7);
+			create_index_init(&CONTEXT->ssql->sstr.create_index, $3, $5, $7, "");
+		}
+	|CREATE UNIQUE INDEX ID ON ID LBRACE ID RBRACE SEMICOLON 
+		{
+			CONTEXT->ssql->flag = SCF_CREATE_INDEX;//"create_index";
+			create_index_init(&CONTEXT->ssql->sstr.create_index, $4, $6, $8, "UNIQUE");
+		}
+	|CREATE INDEX ID ON ID LBRACE ID COMMA ID index_list RBRACE SEMICOLON 
+		{
+			CONTEXT->ssql->flag = SCF_CREATE_INDEX;//"create_index";
+			create_index_init(&CONTEXT->ssql->sstr.create_index, $3, $5, $7, "");
+			AttrInfo attribute;
+			index_attr_init(&attribute, $7);
+			create_index_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
+			index_attr_init(&attribute, $9);
+			create_index_append_attribute(&CONTEXT->ssql->sstr.create_index, &attribute);
 		}
     ;
+index_list:
+    /* empty */
+	|COMMA ID index_list 
+		{
+			AttrInfo attribute;
+			index_attr_init(&attribute, $2);
+			create_index_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
+		}
+  	;
 
 drop_index:			/*drop index 语句的语法解析树*/
     DROP INDEX ID  SEMICOLON 
