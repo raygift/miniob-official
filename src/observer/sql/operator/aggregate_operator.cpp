@@ -110,24 +110,19 @@ Tuple *AggregateOperator::current_tuple()
       sprintf(buffer, "%g", std::atof(buffer));
       float avg = std::atof(buffer);
       current_cell_[i].set_type(FLOATS);
-      current_cell_[i].set_data((char *) &avg);
-      current_cell_[i].set_length(sizeof(float));
+      current_cell_[i].copy_data((char *) &avg, sizeof(float));
     } break;
     case SUM: {
       current_cell_[i].set_type(FLOATS);
-      current_cell_[i].set_data((char *) &statistics_[i]);
-      current_cell_[i].set_length(sizeof(float));
+      current_cell_[i].copy_data((char *) &statistics_[i], sizeof(float));
     } break;
     case COUNT: {
       int count = statistics_[i];
       current_cell_[i].set_type(INTS);
-      current_cell_[i].set_data((char *) &count);
-      current_cell_[i].set_length(sizeof(int));
+      current_cell_[i].copy_data((char *) &count, sizeof(float));
     } break;
-    default: { // MIN / MAX
+    default: {// MIN / MAX
       current_cell_[i].set_type(aggre_fields_[i].attr_type());
-      current_cell_[i].set_data(current_cell_[i].data());
-      current_cell_[i].set_length(current_cell_[i].length());
     } break;
     }
     tuple_.push_cell(current_cell_[i]);
