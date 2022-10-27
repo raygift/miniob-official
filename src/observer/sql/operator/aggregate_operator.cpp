@@ -102,10 +102,8 @@ Tuple *AggregateOperator::current_tuple()
 {
   // post-process statistic value
   for (int i = 0 ; i < aggre_fields_.size() ; i++) {
-    switch (aggre_fields_[i].aggre_type())
-    {
-    case AVG:
-    {
+    switch (aggre_fields_[i].aggre_type()) {
+    case AVG: {
       statistics_[i] = statistics_[i] / total_row_count_;
       char buffer[100];
       sprintf(buffer, "%.2f", statistics_[i]);
@@ -114,29 +112,23 @@ Tuple *AggregateOperator::current_tuple()
       current_cell_[i].set_type(FLOATS);
       current_cell_[i].set_data((char *) &avg);
       current_cell_[i].set_length(sizeof(float));
-      break;
-    }
+    } break;
     case SUM: {
       current_cell_[i].set_type(FLOATS);
       current_cell_[i].set_data((char *) &statistics_[i]);
       current_cell_[i].set_length(sizeof(float));
-      break;
-    }
-    case COUNT:
-    {
+    } break;
+    case COUNT: {
       int count = statistics_[i];
       current_cell_[i].set_type(INTS);
       current_cell_[i].set_data((char *) &count);
       current_cell_[i].set_length(sizeof(int));
-      break;
-    }
-    default: // MIN / MAX
-    {
+    } break;
+    default: { // MIN / MAX
       current_cell_[i].set_type(aggre_fields_[i].attr_type());
       current_cell_[i].set_data(current_cell_[i].data());
       current_cell_[i].set_length(current_cell_[i].length());
-      break;
-    }
+    } break;
     }
     tuple_.push_cell(current_cell_[i]);
   }
@@ -157,49 +149,20 @@ void AggregateOperator::add_aggregation(Field field)
   basic_length = strlen(field_name) + 1;
   basic_alias = (char *)malloc(basic_length);
   strcpy(basic_alias, field_name);
-  char *aggre_alias = basic_alias;
-  switch (field.aggre_type())
-  {
-  case MAX:
-  {
-    aggre_alias = (char *) malloc(basic_length + 5);
-    strcpy(aggre_alias, "MAX(");
-    strcat(aggre_alias, basic_alias);
-    strcat(aggre_alias, ")");
-    break;
+  char *aggre_alias = basic_alias, *prefix;
+  switch (field.aggre_type()) {
+  case MAX: { prefix = "MAX("; } break;
+  case MIN: { prefix = "MIN("; } break;
+  case SUM: { prefix = "SUM("; } break;
+  case AVG: { prefix = "AVG("; } break;
+  case COUNT: { prefix = "COUNT("; } break;
+  default: prefix = ""; break;
   }
-  case MIN:
-  {
-    aggre_alias = (char *) malloc(basic_length + 5);
-    strcpy(aggre_alias, "MIN(");
-    strcat(aggre_alias, basic_alias);
+  aggre_alias = (char *) malloc(basic_length + strlen(prefix) + 1);
+  strcpy(aggre_alias, prefix);
+  strcat(aggre_alias, basic_alias);
+  if (field.aggre_type() != NO_AGGRE) {
     strcat(aggre_alias, ")");
-    break;
-  }
-  case SUM:
-  {
-    aggre_alias = (char *) malloc(basic_length + 5);
-    strcpy(aggre_alias, "SUM(");
-    strcat(aggre_alias, basic_alias);
-    strcat(aggre_alias, ")");
-    break;
-  }
-  case AVG:
-  {
-    aggre_alias = (char *) malloc(basic_length + 5);
-    strcpy(aggre_alias, "AVG(");
-    strcat(aggre_alias, basic_alias);
-    strcat(aggre_alias, ")");
-    break;
-  }
-  case COUNT:
-  {
-    aggre_alias = (char *) malloc(basic_length + 7);
-    strcpy(aggre_alias, "COUNT(");
-    strcat(aggre_alias, basic_alias);
-    strcat(aggre_alias, ")");
-    break;
-  }
   }
   spec->set_alias(aggre_alias);
   tuple_.push_cell_spec(spec);
