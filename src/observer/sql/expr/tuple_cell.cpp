@@ -48,6 +48,16 @@ void TupleCell::to_string(std::ostream &os) const
   }
 }
 
+bool strCaseEQ(char a, char b) {
+  if (a >= 'A' && a <= 'Z') {
+    a += 32;
+  }
+  if (b >= 'A' && b <= 'Z') {
+    b += 32;
+  }
+  return a == b;
+}
+
 bool TupleCell::match(const TupleCell &other) const
 {
   if (this->attr_type_ != CHARS || other.attr_type_ != CHARS) {
@@ -63,7 +73,7 @@ bool TupleCell::match(const TupleCell &other) const
   while (*s){
       //advancing both pointers when (both characters match) or ('?' found in pattern)
       //note that *p will not advance beyond its length 
-      if ( (*p == '_') || (*p == *s) ) {
+      if ( (*p == '_') || (strCaseEQ(*s, *p)) ) {
         s++;
         p++;
         continue;
