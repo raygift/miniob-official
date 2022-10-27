@@ -2208,31 +2208,31 @@ yyreduce:
 
   case 99: /* comOp: LT  */
 #line 735 "yacc_sql.y"
-         { CONTEXT->comp = LESS_THAN; }
+             { CONTEXT->comp = LESS_THAN; }
 #line 2213 "yacc_sql.tab.c"
     break;
 
   case 100: /* comOp: GT  */
 #line 736 "yacc_sql.y"
-         { CONTEXT->comp = GREAT_THAN; }
+             { CONTEXT->comp = GREAT_THAN; }
 #line 2219 "yacc_sql.tab.c"
     break;
 
   case 101: /* comOp: LE  */
 #line 737 "yacc_sql.y"
-         { CONTEXT->comp = LESS_EQUAL; }
+             { CONTEXT->comp = LESS_EQUAL; }
 #line 2225 "yacc_sql.tab.c"
     break;
 
   case 102: /* comOp: GE  */
 #line 738 "yacc_sql.y"
-         { CONTEXT->comp = GREAT_EQUAL; }
+             { CONTEXT->comp = GREAT_EQUAL; }
 #line 2231 "yacc_sql.tab.c"
     break;
 
   case 103: /* comOp: NE  */
 #line 739 "yacc_sql.y"
-         { CONTEXT->comp = NOT_EQUAL; }
+             { CONTEXT->comp = NOT_EQUAL; }
 #line 2237 "yacc_sql.tab.c"
     break;
 

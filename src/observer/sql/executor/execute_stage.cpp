@@ -405,6 +405,8 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
     right_inclusive = false;
   } break;
 
+  case LIKE: { } break; // TODO: only %xxx use index
+
   default: {
     LOG_WARN("should not happen. comp=%d", comp);
   } break;

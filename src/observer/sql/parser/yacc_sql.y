@@ -729,15 +729,15 @@ condition:
 			condition_init(&condition, CONTEXT->comp, 1, &left_attr, NULL, 0, NULL, right_value);
 			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 		}
-    ;
+	;
 comOp:
-  	  EQ { CONTEXT->comp = EQUAL_TO; }
-    | LT { CONTEXT->comp = LESS_THAN; }
-    | GT { CONTEXT->comp = GREAT_THAN; }
-    | LE { CONTEXT->comp = LESS_EQUAL; }
-    | GE { CONTEXT->comp = GREAT_EQUAL; }
-    | NE { CONTEXT->comp = NOT_EQUAL; }
-    ;
+	  EQ { CONTEXT->comp = EQUAL_TO; }
+	| LT { CONTEXT->comp = LESS_THAN; }
+	| GT { CONTEXT->comp = GREAT_THAN; }
+	| LE { CONTEXT->comp = LESS_EQUAL; }
+	| GE { CONTEXT->comp = GREAT_EQUAL; }
+	| NE { CONTEXT->comp = NOT_EQUAL; }
+	;
 matchOp:
 	  LIKE_SYM { CONTEXT->comp = LIKE; }
 	| NOT LIKE_SYM { CONTEXT->comp = NOT_LIKE; }
