@@ -91,11 +91,18 @@ typedef struct {
   Condition conditions[MAX_NUM];  // conditions in Where clause
 } Selects;
 
+typedef struct {
+  size_t value_num;       // Length of values
+  Value values[MAX_NUM];  // values to insert
+} InsertValue;
+
 // struct of insert
 typedef struct {
   char *relation_name;    // Relation to insert into
-  size_t value_num;       // Length of values
-  Value values[MAX_NUM];  // values to insert
+  size_t value_num;       // 针对单行数据的insert，以及临时保存多行insert数据，多行数据会全部被加入到 InsertValueArray[] 中
+  Value values[MAX_NUM];
+  InsertValue array[MAX_NUM];// insert插入多行数据时使用
+  size_t array_size;         // insert插入多行数据时使用，记录行数
 } Inserts;
 
 // struct of delete
@@ -233,6 +240,9 @@ void selects_append_conditions(Selects *selects, Condition conditions[], size_t 
 void selects_destroy(Selects *selects);
 
 void inserts_init(Inserts *inserts, const char *relation_name, Value values[], size_t value_num);
+void inserts_init_value(Inserts *inserts, Value values[], size_t value_num);
+void inserts_init_relation(Inserts *inserts, const char *relation_name);
+void inserts_append_values(Inserts *inserts, Value values[], size_t value_num);
 void inserts_destroy(Inserts *inserts);
 
 void deletes_init_relation(Deletes *deletes, const char *relation_name);

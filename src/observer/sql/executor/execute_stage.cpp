@@ -142,7 +142,13 @@ void ExecuteStage::handle_request(common::StageEvent *event)
       do_select(sql_event);
     } break;
     case StmtType::INSERT: {
-      do_insert(sql_event);
+      InsertStmt *insert_stmt = (InsertStmt *)stmt;
+      if(insert_stmt->value_array() == nullptr){
+        do_insert(sql_event);
+      }
+      else{
+        do_multi_insert(sql_event);
+      }
     } break;
     case StmtType::UPDATE: {
       //do_update((UpdateStmt *)stmt, session_event);
@@ -768,6 +774,67 @@ RC ExecuteStage::do_insert(SQLStageEvent *sql_event)
   } else {
     session_event->set_response("FAILURE\n");
   }
+  return rc;
+}
+
+RC ExecuteStage::do_multi_insert(SQLStageEvent *sql_event)
+{
+  RC rc;
+  // RC rc = do_begin(sql_event);
+
+  Stmt *stmt = sql_event->stmt();
+  SessionEvent *session_event = sql_event->session_event();
+  Session *session = session_event->session();
+  Db *db = session->get_current_db();
+  Trx *trx = session->current_trx();
+  CLogManager *clog_manager = db->get_clog_manager();
+  if (stmt == nullptr) {
+    LOG_WARN("cannot find statement");
+    return RC::GENERIC_ERROR;
+  }
+  std::vector<RID> rids;
+  InsertStmt *insert_stmt = (InsertStmt *)stmt;
+  Table *table = insert_stmt->table();
+
+  // 遍历 stmt->value_array()
+  const InsertValue *iv = insert_stmt->value_array();
+  for (size_t i = 0; i < insert_stmt->array_length(); i++) {
+    int value_amount = (iv + i)->value_num;
+    const Value *v = (iv + i)->values;
+    RID r;
+    rc = table->insert_record(trx, value_amount, v, r);
+    if (rc == RC::SUCCESS) {
+      session_event->set_response("SUCCESS\n");
+      rids.push_back(r);
+    } else {
+      // 回退本次 insert 的多条数据
+      for (size_t i = 0; i < rids.size(); i++) {
+        table->rollback_insert(trx,rids[i]);
+      }
+      session_event->set_response("FAILURE\n");
+      return rc;
+    }
+  }
+  // 将遍历到的 InsertValue 执行 do_insert
+  // rc = do_commit(sql_event);
+  if (!session->is_trx_multi_operation_mode()) {
+    CLogRecord *clog_record = nullptr;
+    rc = clog_manager->clog_gen_record(CLogType::REDO_MTR_COMMIT, trx->get_current_id(), clog_record);
+    if (rc != RC::SUCCESS || clog_record == nullptr) {
+      session_event->set_response("FAILURE\n");
+      return rc;
+    }
+
+    rc = clog_manager->clog_append_record(clog_record);
+    if (rc != RC::SUCCESS) {
+      session_event->set_response("FAILURE\n");
+      return rc;
+    }
+
+    trx->next_current_id();
+
+  }
+  session_event->set_response("SUCCESS\n");
   return rc;
 }
 

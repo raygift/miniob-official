@@ -16,6 +16,7 @@ typedef struct ParserContext {
   size_t condition_length;
   size_t from_length;
   size_t value_length;
+  size_t array_length;// 用于记录insert 多行数据时的数据行数
   Value values[MAX_NUM];
   Condition conditions[MAX_NUM];
   CompOp comp;
@@ -322,7 +323,7 @@ ID_get:
 
 	
 insert:				/*insert   语句的语法解析树*/
-    INSERT INTO ID VALUES LBRACE value value_list RBRACE SEMICOLON 
+    INSERT INTO ID VALUES value_item value_array SEMICOLON 
 		{
 			// CONTEXT->values[CONTEXT->value_length++] = *$6;
 
@@ -332,18 +333,34 @@ insert:				/*insert   语句的语法解析树*/
 			// for(i = 0; i < CONTEXT->value_length; i++){
 			// 	CONTEXT->ssql->sstr.insertion.values[i] = CONTEXT->values[i];
       // }
-			inserts_init(&CONTEXT->ssql->sstr.insertion, $3, CONTEXT->values, CONTEXT->value_length);
+			// inserts_init(&CONTEXT->ssql->sstr.insertion, $3, CONTEXT->values, CONTEXT->value_array[CONTEXT->array_length]);
+			// 为了支持多行数据插入，获取 value 在匹配规约为 value_item 时处理
+			// 此处只为Inserts 结构体的relation 赋值
+			inserts_init_relation(&CONTEXT->ssql->sstr.insertion, $3);
 
       //临时变量清零
       CONTEXT->value_length=0;
     }
-
+	;
+value_item:
+	LBRACE value value_list RBRACE
+		{
+			CONTEXT->array_length++;// 从 insert 解析到 value_array 时，已经解析出来了一组 value_list，此时是多行插入的第二行
+			inserts_append_values(&CONTEXT->ssql->sstr.insertion, CONTEXT->values, CONTEXT->value_length);
+			CONTEXT->value_length=0;
+		}
+		;
+value_array:
+    /* empty */
+    | COMMA value_item
+		{
+		}
+	;
 value_list:
     /* empty */
     | COMMA value value_list  { 
   		// CONTEXT->values[CONTEXT->value_length++] = *$2;
 	  }
-    ;
 value:
     NUMBER{	
   		value_init_integer(&CONTEXT->values[CONTEXT->value_length++], $1);
