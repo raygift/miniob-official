@@ -74,9 +74,12 @@ DOUBLE_QUOTE            [\"]
 [Dd][Aa][Tt][Aa]                                     RETURN_TOKEN(DATA);
 [Ii][Nn][Ff][Ii][Ll][Ee]                             RETURN_TOKEN(INFILE);
 [Dd][Aa][Tt][Ee]                     RETURN_TOKEN(DATE_T);
+
 {SINGLE_QUOTE}[0-9]{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01]){SINGLE_QUOTE} yylval->string=strdup(yytext); RETURN_TOKEN(DATE_STR);
 {DOUBLE_QUOTE}[0-9]{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01]){DOUBLE_QUOTE} yylval->string=strdup(yytext); RETURN_TOKEN(DATE_STR);
+
 [Uu][Nn][Ii][Qq][Uu][Ee]             RETURN_TOKEN(UNIQUE);
+
 [Mm][Aa][Xx]                                         RETURN_TOKEN(MAX_SYM);
 [Mm][Ii][Nn]                                         RETURN_TOKEN(MIN_SYM);
 [Aa][Vv][Gg]                                         RETURN_TOKEN(AVG_SYM);
