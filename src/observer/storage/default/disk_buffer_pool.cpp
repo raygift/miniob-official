@@ -341,6 +341,8 @@ RC DiskBufferPool::allocate_page(Frame **frame)
   return RC::SUCCESS;
 }
 
+// 减少 frame 的 pin 计数
+// 计数归零时会检查是否已经被 disposed
 RC DiskBufferPool::unpin_page(Frame *frame)
 {
   assert(frame->pin_count_ >= 1);
