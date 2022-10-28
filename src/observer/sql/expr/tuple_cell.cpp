@@ -120,20 +120,24 @@ int TupleCell::compare(const TupleCell &other) const
       LOG_WARN("unsupported type: %d", this->attr_type_);
     }
     }
-  } else if (this->attr_type_ == INTS && other.attr_type_ == FLOATS) { // INTS, FLOATS
-    return compare_float((int *)data_, other.data_);
-  } else if (this->attr_type_ == FLOATS && other.attr_type_ == INTS) { // FLOATS, INTS
-    return compare_float(data_, (int *)other.data_);
-  } else if (this->attr_type_ == CHARS && other.attr_type_ == INTS) { // CHARS, INTS
+  } else if (this->attr_type_ == INTS && other.attr_type_ == FLOATS) {
+    float this_data = *(int *)data_;
+    return compare_float(&this_data, other.data_);
+  } else if (this->attr_type_ == FLOATS && other.attr_type_ == INTS) {
+    float other_data = *(int *)other.data_;
+    return compare_float(data_, &other_data);
+  } else if (this->attr_type_ == CHARS && other.attr_type_ == INTS) {
     float this_data = std::atof(data_);
-    return compare_float(&this_data, (int *)other.data_);
-  } else if (this->attr_type_ == INTS && other.attr_type_ == CHARS) { // INTS, CHARS
+    float other_data = *(int *)other.data_;
+    return compare_float(&this_data, &other_data);
+  } else if (this->attr_type_ == INTS && other.attr_type_ == CHARS) {
     float other_data = std::atof(other.data_);
-    return compare_float((int *)data_, &other_data);
-  } else if (this->attr_type_ == CHARS && other.attr_type_ == FLOATS) { // CHARS, INTS
+    float this_data = *(int *)data_;
+    return compare_float(&this_data, &other_data);
+  } else if (this->attr_type_ == CHARS && other.attr_type_ == FLOATS) {
     float this_data = std::atof(data_);
     return compare_float(&this_data, other.data_);
-  } else if (this->attr_type_ == FLOATS && other.attr_type_ == CHARS) { // INTS, CHARS
+  } else if (this->attr_type_ == FLOATS && other.attr_type_ == CHARS) {
     float other_data = std::atof(other.data_);
     return compare_float(data_, &other_data);
   }
