@@ -23,6 +23,10 @@ InsertStmt::InsertStmt(Table *table, const Value *values, int value_amount)
   : table_ (table), values_(values), value_amount_(value_amount)
 {}
 
+InsertStmt::InsertStmt(Table *table, const Value *values, int value_amount, const InsertValue *value_array, int array_length)
+  :table_ (table), values_(values), value_amount_(value_amount), value_array_(value_array), array_length_(array_length)
+{}
+
 RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
 {
   const char *table_name = inserts.relation_name;
@@ -41,7 +45,15 @@ RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
 
   // check the fields number
   const Value *values = inserts.values;
-  const int value_num = inserts.value_num;
+  int v_value_num;
+  if (inserts.array_size>0){
+    v_value_num = inserts.array[0].value_num;//inserts.value_num;
+    values= inserts.array[0].values;
+  }else{
+    v_value_num= inserts.value_num;
+  }
+  const int value_num = v_value_num;
+
   const TableMeta &table_meta = table->table_meta();
   const int field_num = table_meta.field_num() - table_meta.sys_field_num();
   if (field_num != value_num) {
@@ -61,7 +73,7 @@ RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
     if (field_type == value_type) {
       // do nothing
     } else if (value_type == INTS && field_type == FLOATS) {
-      float new_data = *(int*)values[i].data;
+      float new_data = *(int *)values[i].data;
       memcpy(values[i].data, &new_data, sizeof(new_data));
     } else if (value_type == FLOATS && field_type == INTS) {
       int new_data = std::round(*(float *)values[i].data);
@@ -81,8 +93,11 @@ RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
       sprintf(new_data, "%g", *(float *)values[i].data);
       memcpy(values[i].data, &new_data, sizeof(float));
     } else {
-      LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d", 
-               table_name, field_meta->name(), field_type, value_type);
+      LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
+          table_name,
+          field_meta->name(),
+          field_type,
+          value_type);
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
     // values[i].type = field_type;
@@ -90,7 +105,7 @@ RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
   }
 
   // everything alright
-  stmt = new InsertStmt(table, values, value_num);
   // stmt = new InsertStmt(table, values, value_num);
+  stmt = new InsertStmt(table, values, value_num, inserts.array, inserts.array_size);
   return RC::SUCCESS;
 }

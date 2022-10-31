@@ -26,7 +26,8 @@ public:
 
   InsertStmt() = default;
   InsertStmt(Table *table, const Value *values, int value_amount);
-
+  InsertStmt(Table *table, const Value *values, int value_amount, const InsertValue *value_array, int array_length);
+  
   StmtType type() const override {
     return StmtType::INSERT;
   }
@@ -37,10 +38,16 @@ public:
   Table *table() const {return table_;}
   const Value *values() const { return values_; }
   int value_amount() const { return value_amount_; }
+  const InsertValue *value_array() const { return value_array_; }
+  int array_length() const { return array_length_; }
+  void set_values(const Value * values) { values_ = values; }
+  void set_value_amount(int value_amout) { value_amount_ = value_amout; }
 
 private:
   Table *table_ = nullptr;
   const Value *values_ = nullptr;
   int value_amount_ = 0;
+  const InsertValue *value_array_ = nullptr;
+  int array_length_ = 0;
 };
 
