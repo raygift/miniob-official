@@ -25,6 +25,7 @@ class RecordFileScanner;
 class ConditionFilter;
 class DefaultConditionFilter;
 class Index;
+class IndexMulti;
 class IndexScanner;
 class RecordDeleter;
 class Trx;
@@ -76,7 +77,7 @@ public:
 
   RC create_index(Trx *trx, const char *index_name, const char *attribute_name, int is_unique);
   RC create_multi_index(Trx *trx, const char *index_name, const AttrInfo attributes[]);
-
+  RC create_multi_index(Trx *trx, const char *index_name, const AttrInfo attributes[MAX_NUM],size_t attribute_count, int is_unique);
   RC create_internal_index(Trx *trx, const char *index_name, const AttrInfo attributes[]);
 
   /** 由于多列索引需要 B+Tree 的叶子节点嵌套 B+Tree 来实现

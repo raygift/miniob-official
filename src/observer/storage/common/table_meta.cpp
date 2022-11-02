@@ -104,6 +104,12 @@ RC TableMeta::add_index(const IndexMeta &index)
   return RC::SUCCESS;
 }
 
+RC TableMeta::add_index(const IndexMultiMeta &index)
+{
+  m_indexes_.push_back(index);
+  return RC::SUCCESS;
+}
+
 const char *TableMeta::name() const
 {
   return name_.c_str();
@@ -165,6 +171,26 @@ const IndexMeta *TableMeta::find_index_by_field(const char *field) const
   for (const IndexMeta &index : indexes_) {
     if (0 == strcmp(index.field(), field)) {
       return &index;
+    }
+  }
+  return nullptr;
+}
+
+const IndexMultiMeta *TableMeta::find_multi_index_by_fields(const AttrInfo attributes[MAX_NUM], const int attribute_count) const
+{
+  for (const IndexMultiMeta &index : m_indexes_) {// 遍历表的元数据中记录的所有多列索引
+    
+    // 针对每个多列索引，根据最左匹配原则，查找是否已存在可匹配的索引
+
+    const std::vector<std::string> *fields = index.fields();   // 获取保存索引对应多个列的 vector 容器
+    int offset = 0;
+    for (auto i = fields->begin(); i != fields->end(); i++) {  // 逐个遍历一个多列索引的所有列
+      if(offset==attribute_count){// 若直到最后一列，每一列都相同，则当前遍历到的多列索引与入参的所有列都匹配
+          return &index;
+      }
+      if (0 != strcmp(i->c_str(), attributes[offset++].name)) {  // 找到不匹配的列，结束对该索引的列的遍历
+        break;
+      }
     }
   }
   return nullptr;

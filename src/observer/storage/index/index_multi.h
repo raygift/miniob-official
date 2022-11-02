@@ -23,14 +23,14 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/field_meta.h"
 #include "storage/record/record_manager.h"
 
-// class IndexDataOperator {
-// public:
-//   virtual ~IndexDataOperator() = default;
-//   virtual int compare(const void *data1, const void *data2) const = 0;
-//   virtual size_t hash(const void *data) const = 0;
-// };
+class MultiIndexDataOperator {
+public:
+  virtual ~MultiIndexDataOperator() = default;
+  virtual int compare(const void *data1, const void *data2) const = 0;
+  virtual size_t hash(const void *data) const = 0;
+};
 
-// class IndexScanner;
+class MultiIndexScanner;
 
 class IndexMulti {
 
@@ -46,23 +46,23 @@ public:
   virtual RC insert_entry(const char *record, const RID *rid) = 0;
   virtual RC delete_entry(const char *record, const RID *rid) = 0;
 
-  virtual IndexMultiScanner *create_scanner(const char *left_key, int left_len, bool left_inclusive,
+  virtual MultiIndexScanner *create_scanner(const char *left_key, int left_len, bool left_inclusive,
 				       const char *right_key, int right_len, bool right_inclusive) = 0;
 
   virtual RC sync() = 0;
 
 protected:
-  RC init(const IndexMultiMeta &index_meta, std::vector<FieldMeta*> multi_fields_meta_);
+  RC init(const IndexMultiMeta &index_meta, std::vector<const FieldMeta*> multi_fields_meta);
 
 protected:
   IndexMultiMeta index_multi_meta_;
-  std::vector<FieldMeta*> multi_fields_meta_;  /// 多个字段的索引
+  std::vector<const FieldMeta*> multi_fields_meta_;  /// 多个字段的索引
 };
 
-class IndexMultiScanner {
+class MultiIndexScanner {
 public:
-  IndexMultiScanner() = default;
-  virtual ~IndexMultiScanner() = default;
+  MultiIndexScanner() = default;
+  virtual ~MultiIndexScanner() = default;
 
   /**
    * 遍历元素数据

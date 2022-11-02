@@ -35,21 +35,21 @@ RC IndexMeta::init(const char *name, const FieldMeta &field)
   return RC::SUCCESS;
 }
 
-RC IndexMeta::init(const char *name, const FieldMeta &field, const AttrInfo attributes[])
-{
-  if (common::is_blank(name)) {
-    LOG_ERROR("Failed to init index, name is empty.");
-    return RC::INVALID_ARGUMENT;
-  }
+// RC IndexMeta::init(const char *name, const FieldMeta &field, AttrInfo attributes[])
+// {
+//   if (common::is_blank(name)) {
+//     LOG_ERROR("Failed to init index, name is empty.");
+//     return RC::INVALID_ARGUMENT;
+//   }
 
-  name_ = name;
-  field_ = field.name();
-  for(size_t i = 0;i != attributes->length;i++){
-    const char *attribute_name = attributes[i].name;
-    multi_fileds_.push_back(std::string(attribute_name));
-  }
-  return RC::SUCCESS;
-}
+//   name_ = name;
+//   field_ = field.name();
+//   for(size_t i = 0;i != attributes->length;i++){
+//     const char *attribute_name = attributes[i].name;
+//     multi_fileds_.push_back(std::string(attribute_name));
+//   }
+//   return RC::SUCCESS;
+// }
 
 RC IndexMeta::init(const char *name, const FieldMeta &field, int is_unique)
 {
@@ -113,11 +113,4 @@ const int IndexMeta::is_unique()
 void IndexMeta::desc(std::ostream &os) const
 {
   os << "index name=" << name_ << ", field=" << field_;
-}
-
-bool IndexMeta::is_last_field(){
-  if (field_ == multi_fileds_[multi_fileds_.size() - 1]) {
-    return true;
-  }
-  return false;
 }

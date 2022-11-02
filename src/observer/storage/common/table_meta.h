@@ -21,6 +21,7 @@ See the Mulan PSL v2 for more details. */
 #include "rc.h"
 #include "storage/common/field_meta.h"
 #include "storage/common/index_meta.h"
+#include "storage/common/index_multi_meta.h"
 #include "common/lang/serializable.h"
 
 class TableMeta : public common::Serializable {
@@ -35,6 +36,7 @@ public:
   RC init(const char *name, int field_num, const AttrInfo attributes[]);
 
   RC add_index(const IndexMeta &index);
+  RC add_index(const IndexMultiMeta &index);
 
 public:
   const char *name() const;
@@ -48,6 +50,7 @@ public:
 
   const IndexMeta *index(const char *name) const;
   const IndexMeta *find_index_by_field(const char *field) const;
+  const IndexMultiMeta *find_multi_index_by_fields(const AttrInfo attributes[MAX_NUM], const int attribute_count) const;
   const IndexMeta *index(int i) const;
   int index_num() const;
 
@@ -67,7 +70,7 @@ protected:
   std::string name_;
   std::vector<FieldMeta> fields_;  // 包含sys_fields
   std::vector<IndexMeta> indexes_;
-
+  std::vector<IndexMultiMeta> m_indexes_;// 用于 multi-index
   int record_size_ = 0;
 
   //@@@ TODO why used static variable?

@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 
 #include <string>
 #include "rc.h"
+#include <vector>
 
 class TableMeta;
 class FieldMeta;
@@ -30,14 +31,13 @@ public:
   IndexMeta() = default;
 
   RC init(const char *name, const FieldMeta &field);
-  RC init(const char *name, const FieldMeta &field, const AttrInfo attributes[]);
+  // RC init(const char *name, const FieldMeta &field, AttrInfo attributes[]);
   RC init(const char *name, const FieldMeta &field, int is_unique);
 
 public:
   const char *name() const;
   const char *field() const;
   const int is_unique();
-  bool is_last_field();
 
   void desc(std::ostream &os) const;
 

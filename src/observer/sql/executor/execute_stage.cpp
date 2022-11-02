@@ -659,14 +659,15 @@ RC ExecuteStage::do_create_index(SQLStageEvent *sql_event)
     session_event->set_response("FAILURE\n");
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
-  if (create_index.attributes->length==0){
+  if (create_index.attribute_count <= 1) {
     RC rc = table->create_index(nullptr, create_index.index_name, create_index.attribute_name, create_index.unique);
     sql_event->session_event()->set_response(rc == RC::SUCCESS ? "SUCCESS\n" : "FAILURE\n");
     return rc;
-  }else{
-      RC rc = table->create_multi_index(nullptr, create_index.index_name, create_index.attributes);
-      sql_event->session_event()->set_response(rc == RC::SUCCESS ? "SUCCESS\n" : "FAILURE\n");
-      return rc;
+  } else {
+    RC rc = table->create_multi_index(
+        nullptr, create_index.index_name, create_index.attributes, create_index.attribute_count, create_index.unique);
+    sql_event->session_event()->set_response(rc == RC::SUCCESS ? "SUCCESS\n" : "FAILURE\n");
+    return rc;
   }
 }
 

@@ -14,9 +14,9 @@ See the Mulan PSL v2 for more details. */
 
 #include "storage/index/index_multi.h"
 
-RC IndexMulti::init(const IndexMultiMeta &index_meta, std::vector<FieldMeta*> multi_fields_meta_)
+RC IndexMulti::init(const IndexMultiMeta &index_meta, std::vector<const FieldMeta*> multi_fields_meta)
 {
   index_multi_meta_ = index_meta;
-  multi_fields_meta_ =  multi_fields_meta_; /// 多个字段的索引
+  multi_fields_meta_ =  multi_fields_meta; /// 多个字段的索引
   return RC::SUCCESS;
 }

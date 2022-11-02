@@ -622,10 +622,31 @@ private:
   Index *index_;
 };
 
+class IndexMultiInserter {
+public:
+  explicit IndexMultiInserter(IndexMulti *index) : m_index_(index)
+  {}
+
+  RC insert_index(const Record *record)
+  {
+    return m_index_->insert_entry(record->data(), &record->rid());
+  }
+
+private:
+  IndexMulti *m_index_;
+};
+
+
 static RC insert_index_record_reader_adapter(Record *record, void *context)
 {
   IndexInserter &inserter = *(IndexInserter *)context;
   return inserter.insert_index(record);
+}
+
+static RC insert_multi_index_record_reader_adapter(Record *record, void *context)
+{
+  IndexMultiInserter &m_inserter = *(IndexMultiInserter *)context;
+  return m_inserter.insert_index(record);
 }
 
 static RC insert_leaf_index_record_reader_adapter(Record *record, void *context)
@@ -724,67 +745,11 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
 }
 
 
-// create_index() without update table meta
-// 得到创建 leaf index 的 file_name 和 root_page
-RC Table::create_leaf_index(
-    Trx *trx, const char *index_name, const char *upper_record_value, const AttrInfo attributes[])
+// 根据多列属性，创建联合索引
+RC Table::create_multi_index(
+    Trx *trx, const char *index_name, const AttrInfo attributes[MAX_NUM], size_t attribute_count, int is_unique)
 {
-  const char *attribute_name = attributes[attributes->length - 1].name;// 获得 attribute 中的最后一个属性
-  const char *prev_attribute_name = attributes[attributes->length - 2].name;
-  const FieldMeta *field_meta = table_meta_.field(attribute_name);
-  if (!field_meta) {
-    LOG_INFO("Invalid input arguments, there is no field of %s in table:%s.", attribute_name, name());
-    return RC::SCHEMA_FIELD_MISSING;
-  }
-
-  // 创建索引元信息
-  IndexMeta new_leaf_index_meta;
-  RC rc = new_leaf_index_meta.init(index_name, *field_meta, attributes);
-  if (rc != RC::SUCCESS) {
-    LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s, field_name:%s", name(), index_name, attribute_name);
-    return rc;
-  }
-
-  // 创建索引相关数据
-  assert(strlen(upper_record_value)>0);// 确保传入了更靠前属性的值，针对该值创建本属性的一个索引
-
-  BplusTreeIndex *leaf_index = new BplusTreeIndex();
-  std::string leaf_index_file =
-      table_leaf_index_file(base_dir_.c_str(), name(), index_name, prev_attribute_name, upper_record_value);
-
-  // 根据索引文件名、索引元信息、索引对应的列元信息，创建索引文件 .index
-  // 并向文件 data 区域开头写入 IndexFileHeader 数据
-  // IndexFileHeader 中记录了 属性值的长度，索引键 key 的长度，以及 root_page
-  rc = leaf_index->create(leaf_index_file.c_str(), new_leaf_index_meta, *field_meta);
-  if (rc != RC::SUCCESS) {
-    delete leaf_index;
-    LOG_ERROR("Failed to create bplus tree index. file name=%s, rc=%d:%s", leaf_index_file.c_str(), rc, strrc(rc));
-    return rc;
-  }
-
-  // 遍历当前的所有数据，插入这个索引
-  IndexInserter index_inserter(leaf_index);
-  // TODO: 这里扫描表中数据时，需要加上多列属性的筛选条件
-  rc = scan_record(trx, nullptr, -1, &index_inserter, insert_index_record_reader_adapter);
-  if (rc != RC::SUCCESS) {
-    // rollback
-    delete leaf_index;
-    LOG_ERROR("Failed to insert index to all records. table=%s, rc=%d:%s", name(), rc, strrc(rc));
-    return rc;
-  }
-  indexes_.push_back(leaf_index);
-}
-
-RC Table::create_internal_index(
-    Trx *trx, const char *index_name, const char *upper_record_value, const AttrInfo attributes[]){
-
-
-  return RC::SUCCESS;
-}
-
-RC Table::create_multi_index(Trx *trx, const char *index_name, const AttrInfo attributes[])
-{
-  if (common::is_blank(index_name) || attributes->length == 0) {
+  if (common::is_blank(index_name) || attribute_count == 0) {
     LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attributes is blank", name());
     return RC::INVALID_ARGUMENT;
   }
@@ -794,117 +759,149 @@ RC Table::create_multi_index(Trx *trx, const char *index_name, const AttrInfo at
         index_name);
     return RC::SCHEMA_INDEX_EXIST;
   }
-  // 递归的最后一层，attributes 只剩最后一个 attribute
-  if (attributes->length == 0) {
-    // 执行常规的 create_index
-    // 所创建的索引文件名为：{parent_index_name}_{value}_{attribute_name}.index
-    // 参考 create_index()，只是不再执行创建 TableMeta 的动作
-    
-    const char* leaf_index_name = string(parent_index_name)+"_"+itoa(parent_index_value)+"_"
-    create_leaf_index(trx,,attributes[0].name);
+    // TODO: 去 indexes_ 查找属性是否有对应的索引，多列索引是否会引发误判？
+  const IndexMultiMeta *exist_index = table_meta_.find_multi_index_by_fields(attributes, attribute_count);
+  if (exist_index != nullptr) {
+    LOG_INFO("Invalid input arguments, table name is %s, attribute %s exist index", name(), exist_index->name());
+    return RC::SCHEMA_INDEX_EXIST;
   }
 
-  // TODO: 判断该列已存在对应索引
-  // for (auto i = 0; i != attributes->length; i++) {
-    // const char *attribute_name = attributes[i].name;
-    // if (table_meta_.find_index_by_field((attribute_name))){
-    //   LOG_INFO("Invalid input arguments, table name is %s, index %s exist or attribute %s exist index",
-    //       name(),
-    //       index_name,
-    //       attribute_name);
-    //   return RC::SCHEMA_INDEX_EXIST;
-    // }
-  // }
-  std::vector<FieldMeta> fields_meta;
-  // 列有效性判断
-  for (auto i = 0; i != attributes->length; i++) {
+  std::vector<const FieldMeta *> fields_meta;
+  for (size_t i = 0; i < attribute_count; i++) {
     const char *attribute_name = attributes[i].name;
-    const FieldMeta *field_meta = table_meta_.field(attribute_name);
 
+    // 检查表元数据中是否存在该属性
+    // 合法的属性被加入 vector，用于创建 multi_index_meta
+    const FieldMeta *field_meta = table_meta_.field(attribute_name);
     if (!field_meta) {
       LOG_INFO("Invalid input arguments, there is no field of %s in table:%s.", attribute_name, name());
       return RC::SCHEMA_FIELD_MISSING;
     }
-    fields_meta.push_back(*field_meta);// 收集所有 field
+    fields_meta.push_back(field_meta);
   }
-  // // 创建新的多列索引
-  // IndexMultiMeta new_index_multi_meta;
-  // RC rc = new_index_multi_meta.init(index_name,fields_meta);
-  // if (rc != RC::SUCCESS) {
-  //   LOG_INFO("Failed to init IndexMultiMeta in table:%s, index_name:%s", name(), index_name);
-  //   return rc;
-  // }
-
-  IndexMeta new_index_meta;
-  RC rc = new_index_meta.init(index_name, fields_meta[0], is_unique);
+  IndexMultiMeta new_multi_index_meta;
+  RC rc = new_multi_index_meta.init(index_name, fields_meta, is_unique);
   if (rc != RC::SUCCESS) {
-    LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s, field_name:%s",
-             name(), index_name, fields_meta[0].name());
+    LOG_INFO("Failed to init IndexMultiMeta in table:%s, index_name:%s",
+             name(), index_name);
     return rc;
   }
 
-  // 创建第一个属性的索引相关数据
-  BplusTreeIndex *index = new BplusTreeIndex();
+  // 创建索引相关数据
+  BplusTreeMultiIndex *index = new BplusTreeMultiIndex();
   std::string index_file = table_index_file(base_dir_.c_str(), name(), index_name);
-  rc = index->create(index_file.c_str(), new_index_meta, fields_meta[0]);
+  rc = index->create(index_file.c_str(), new_multi_index_meta, fields_meta);
   if (rc != RC::SUCCESS) {
     delete index;
-    LOG_ERROR("Failed to create bplus tree index. file name=%s, rc=%d:%s", index_file.c_str(), rc, strrc(rc));
+    LOG_ERROR("Failed to create multi bplus tree index. file name=%s, rc=%d:%s", index_file.c_str(), rc, strrc(rc));
     return rc;
   }
 
   // 遍历当前的所有数据，插入这个索引
-  // 注意这里遍历并向第一个属性的索引插入数据时
-  // 叶子节点插入的值需要是第二个属性对应的多个索引中的某一个索引的根节点地址
-  // 即，第二个属性对应的索引个数 等于 第一个属性拥有的值的个数
-  // 而第二个属性的索引的叶子节点，又对应第三个属性所对应的多个索引中的某一个索引的根节点地址
-  // 类似递归的创建索引，最后一个属性的索引B+树叶子节点才最终保存 Record 对应的 RID
-  // 
+  IndexMultiInserter index_multi_inserter(index);
+  rc = scan_record(trx, nullptr, -1, &index_multi_inserter, insert_multi_index_record_reader_adapter);
+  if (rc != RC::SUCCESS) {
+    // rollback
+    delete index;
+    LOG_ERROR("Failed to insert index to all records. table=%s, rc=%d:%s", name(), rc, strrc(rc));
+    return rc;
+  }
+  m_indexes_.push_back(index);
 
+  // 更新 table 元数据文件
+  // 与单列索引一致
+  TableMeta new_table_meta(table_meta_);
+  rc = new_table_meta.add_index(new_multi_index_meta);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to add index (%s) on table (%s). error=%d:%s", index_name, name(), rc, strrc(rc));
+    return rc;
+  }
+  // 创建元数据临时文件
+  std::string tmp_file = table_meta_file(base_dir_.c_str(), name()) + ".tmp";
+  std::fstream fs;
+  fs.open(tmp_file, std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
+  if (!fs.is_open()) {
+    LOG_ERROR("Failed to open file for write. file name=%s, errmsg=%s", tmp_file.c_str(), strerror(errno));
+    return RC::IOERR;  // 创建索引中途出错，要做还原操作
+  }
+  if (new_table_meta.serialize(fs) < 0) {
+    LOG_ERROR("Failed to dump new table meta to file: %s. sys err=%d:%s", tmp_file.c_str(), errno, strerror(errno));
+    return RC::IOERR;
+  }
+  fs.close();
 
-  // // 创建所有属性的索引元数据，保存到vector<IndexMeta>里
-  // // 之后首个属性对应的 IndexMeta 会保存到 TableMeta 里
-  // std::vector<IndexMeta> index_metas;
-  // std::vector<BplusTreeIndex> index_m;
-  // for(auto i = 0; i != attributes->length;i++){
-  //   IndexMeta new_index_meta;
-  //   RC rc = new_index_meta.init(index_name, fields_meta[i]);
-  //   if (rc != RC::SUCCESS) {
-  //     LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s, field_name:%s",
-  //             name(), index_name, fields_meta[i].name());
-  //     return rc;
-  //   }
-  //   index_metas.push_back(new_index_meta);
+  // 覆盖原始元数据文件
+  std::string meta_file = table_meta_file(base_dir_.c_str(), name());
+  int ret = rename(tmp_file.c_str(), meta_file.c_str());
+  if (ret != 0) {
+    LOG_ERROR("Failed to rename tmp meta file (%s) to normal meta file (%s) while creating index (%s) on table (%s). "
+              "system error=%d:%s",
+        tmp_file.c_str(),
+        meta_file.c_str(),
+        index_name,
+        name(),
+        errno,
+        strerror(errno));
+    return RC::IOERR;
+  }
 
-  //   // 创建多列所有属性对应索引相关数据文件
-  //   BplusTreeIndex *index = new BplusTreeIndex();
-  //   std::string index_file = table_index_file(base_dir_.c_str(), name(), index_name, attributes[i].name);
-  //   rc = index->create(index_file.c_str(), new_index_meta, fields_meta[i]);
-  //   if (rc != RC::SUCCESS) {
-  //     delete index;
-  //     LOG_ERROR("Failed to create bplus tree index. file name=%s, rc=%d:%s", index_file.c_str(), rc, strrc(rc));
-  //     return rc;
-  //   }
-  //   index_m.push_back(*index);
-  // }
-  // // 遍历当前的所有数据，插入多列索引最后一个属性对应的索引
-  // IndexInserter index_inserter(&index_m[attributes->length-1]);
-  // RC rc = scan_record(trx, nullptr, -1, &index_inserter, insert_index_record_reader_adapter);
-  // if (rc != RC::SUCCESS) {
-  //   // rollback
-  //   // delete index;// 不执行 delete 可能导致内存溢出
-  //   LOG_ERROR("Failed to insert index to all records. table=%s, rc=%d:%s", name(), rc, strrc(rc));
-  //   return rc;
-  // }
+  table_meta_.swap(new_table_meta);
 
-
-  // 将多列属性的第一个属性对应的索引推入 indexes_
-  indexes_.push_back(&index_m[0]);
-
+  LOG_INFO("Successfully added a new index (%s) on the table (%s)", index_name, name());
 
   return RC::SUCCESS;
 }
 
+// // create_index() without update table meta
+// // 得到创建 leaf index 的 file_name 和 root_page
+// RC Table::create_leaf_index(
+//     Trx *trx, const char *index_name, const char *upper_record_value, const AttrInfo attributes[])
+// {
+//   const char *attribute_name = attributes[attributes->length - 1].name;// 获得 attribute 中的最后一个属性
+//   const char *prev_attribute_name = attributes[attributes->length - 2].name;
+//   const FieldMeta *field_meta = table_meta_.field(attribute_name);
+//   if (!field_meta) {
+//     LOG_INFO("Invalid input arguments, there is no field of %s in table:%s.", attribute_name, name());
+//     return RC::SCHEMA_FIELD_MISSING;
+//   }
+
+//   // 创建索引元信息
+//   IndexMeta new_leaf_index_meta;
+//   RC rc = new_leaf_index_meta.init(index_name, *field_meta, attributes);
+//   if (rc != RC::SUCCESS) {
+//     LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s, field_name:%s", name(), index_name, attribute_name);
+//     return rc;
+//   }
+
+//   // 创建索引相关数据
+//   assert(strlen(upper_record_value)>0);// 确保传入了更靠前属性的值，针对该值创建本属性的一个索引
+
+//   BplusTreeIndex *leaf_index = new BplusTreeIndex();
+//   std::string leaf_index_file =
+//       table_leaf_index_file(base_dir_.c_str(), name(), index_name, prev_attribute_name, upper_record_value);
+
+//   // 根据索引文件名、索引元信息、索引对应的列元信息，创建索引文件 .index
+//   // 并向文件 data 区域开头写入 IndexFileHeader 数据
+//   // IndexFileHeader 中记录了 属性值的长度，索引键 key 的长度，以及 root_page
+//   rc = leaf_index->create(leaf_index_file.c_str(), new_leaf_index_meta, *field_meta);
+//   if (rc != RC::SUCCESS) {
+//     delete leaf_index;
+//     LOG_ERROR("Failed to create bplus tree index. file name=%s, rc=%d:%s", leaf_index_file.c_str(), rc, strrc(rc));
+//     return rc;
+//   }
+
+//   // 遍历当前的所有数据，插入这个索引
+//   IndexInserter index_inserter(leaf_index);
+//   // TODO: 这里扫描表中数据时，需要加上多列属性的筛选条件
+//   rc = scan_record(trx, nullptr, -1, &index_inserter, insert_index_record_reader_adapter);
+//   if (rc != RC::SUCCESS) {
+//     // rollback
+//     delete leaf_index;
+//     LOG_ERROR("Failed to insert index to all records. table=%s, rc=%d:%s", name(), rc, strrc(rc));
+//     return rc;
+//   }
+//   indexes_.push_back(leaf_index);
+// }
 
 RC Table::update_record_data(Record *old_record,  const char *attribute_name, const Value *values)
 {

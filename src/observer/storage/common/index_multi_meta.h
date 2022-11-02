@@ -30,13 +30,15 @@ class IndexMultiMeta {
 public:
   IndexMultiMeta() = default;
 
-  RC init(const char *name, std::vector<FieldMeta> &fields);
+  RC init(const char *name, std::vector<const FieldMeta *> fields_meta, bool is_unique);
 
 public:
   const char *name() const;
   const char *field() const;
+  const std::vector<std::string> *fields() const;
 
   void desc(std::ostream &os) const;
+  const int is_unique();
 
 // public:
 //   void to_json(Json::Value &json_value) const;
@@ -44,6 +46,7 @@ public:
 
 protected:
   std::string name_;   // index's name
-  std::vector<std::string> *field_;  // field's name
+  std::vector<std::string> *fields_;  // field's name
+  int is_unique_;
 };
 #endif  // __OBSERVER_STORAGE_COMMON_INDEX_MULTI_META_H__
