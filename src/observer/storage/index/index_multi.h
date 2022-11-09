@@ -43,6 +43,11 @@ public:
     return index_multi_meta_;
   }
 
+  const std::vector<const FieldMeta*> &flelds_meta() const
+  {
+    return multi_fields_meta_;
+  }
+
   virtual RC insert_entry(const char *record, const RID *rid) = 0;
   virtual RC delete_entry(const char *record, const RID *rid) = 0;
 

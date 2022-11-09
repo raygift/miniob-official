@@ -22,35 +22,39 @@ BplusTreeMultiIndex::~BplusTreeMultiIndex() noexcept
 
 RC BplusTreeMultiIndex::create(const char *file_name, const IndexMultiMeta &index_multi_meta, std::vector<const FieldMeta*>fields_meta)
 {
-  // if (inited_) {
-  //   LOG_WARN("Failed to create index due to the index has been created before. file_name:%s, index:%s, field:%s",
-  //       file_name,
-  //       index_meta.name(),
-  //       index_meta.field());
-  //   return RC::RECORD_OPENNED;
+  if (inited_) {
+    LOG_WARN("Failed to create index due to the index has been created before. file_name:%s, index:%s",
+        file_name,
+        index_multi_meta.name());
+    return RC::RECORD_OPENNED;
+  }
+
+  IndexMulti::init(index_multi_meta, fields_meta);
+  // for (size_t i = 0; i != index_handler_.size(); i++) {
+
+  std::vector<AttrType> attrs ;
+  std::vector<int> lens;
+  for (auto i = fields_meta.begin(); i != fields_meta.end(); i++) {
+    AttrType at = (*i)->type();
+    attrs.push_back(at);
+    lens.push_back((*i)->len());
+  }
+
+  RC rc = m_index_handler_.create(file_name,attrs, lens);
+  if (RC::SUCCESS != rc) {
+    LOG_WARN("Failed to create index_handler, file_name:%s, index:%s, field:xxx, rc:%s",
+        file_name,
+        index_multi_meta.name(),
+        strrc(rc));
+    return rc;
+    }
   // }
 
-  // IndexMulti::init(index_meta, fields_meta);
-  // for (size_t i = 0; i != index_handlers_.size(); i++) {
-
-  //   RC rc = index_handlers_[i].create(file_name, fields_meta[i].type(), field_meta.len());
-  //   if (RC::SUCCESS != rc) {
-  //     LOG_WARN("Failed to create index_handler, file_name:%s, index:%s, field:%s, rc:%s",
-  //         file_name,
-  //         index_meta.name(),
-  //         index_meta.field(),
-  //         strrc(rc));
-  //     return rc;
-  //   }
-  // }
-
-  // inited_ = true;
-  // LOG_INFO(
-  //     "Successfully create index, file_name:%s, index:%s, field:%s", file_name, index_meta.name(), index_meta.field());
-  // return RC::SUCCESS;
+  inited_ = true;
+  LOG_INFO("Successfully create index, file_name:%s, index:%s, field:xxxx", file_name, index_multi_meta.name());
+  return RC::SUCCESS;
 
   // TODO(multi-index)
-  return RC::SUCCESS;
 }
 
 RC BplusTreeMultiIndex::open(const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta)

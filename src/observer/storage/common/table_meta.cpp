@@ -182,9 +182,9 @@ const IndexMultiMeta *TableMeta::find_multi_index_by_fields(const AttrInfo attri
     
     // 针对每个多列索引，根据最左匹配原则，查找是否已存在可匹配的索引
 
-    const std::vector<std::string> *fields = index.fields();   // 获取保存索引对应多个列的 vector 容器
+    const std::vector<std::string> fields = index.fields();   // 获取保存索引对应多个列的 vector 容器
     int offset = 0;
-    for (auto i = fields->begin(); i != fields->end(); i++) {  // 逐个遍历一个多列索引的所有列
+    for (auto i = fields.begin(); i != fields.end(); i++) {  // 逐个遍历一个多列索引的所有列
       if(offset==attribute_count){// 若直到最后一列，每一列都相同，则当前遍历到的多列索引与入参的所有列都匹配
           return &index;
       }

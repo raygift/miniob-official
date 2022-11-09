@@ -43,6 +43,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/table.h"
 #include "storage/common/field.h"
 #include "storage/index/index.h"
+#include "storage/index/index_multi.h"
 #include "storage/default/default_handler.h"
 #include "storage/common/condition_filter.h"
 #include "storage/trx/trx.h"
@@ -708,8 +709,25 @@ RC ExecuteStage::do_show_index(SQLStageEvent *sql_event)
       int non_unique = index_meta.is_unique() ? 0 : 1;
       ss << table_name << " | " << non_unique << " | " << index_meta.name() << " | " 
       << seq << " | " << index_meta.field() << std::endl;
-      // seq++;
     }
+    // 找到 table 上的所有 多列索引
+    const std::vector<IndexMulti *> *m_indexes = table->find_all_m_index();
+    for (auto mit = m_indexes->begin(); mit != m_indexes->end(); mit++) {
+    
+      auto m_index_meta = (*mit)->index_multi_meta();
+      // index_meta.desc(ss);
+      int non_unique = m_index_meta.is_unique() ? 0 : 1;
+
+      // 遍历多列索引的多个列，得到列名
+      auto m_index_fields = (*mit)->flelds_meta();
+      int m_seq = 0;
+      for (auto f_it = m_index_fields.begin();f_it!=m_index_fields.end();f_it++){
+        ss << table_name << " | " << non_unique << " | " << m_index_meta.name() << " | " << ++m_seq << " | "
+           << (*f_it)->name() << std::endl;
+      }
+    }
+
+    // for(auto )
     session_event->set_response(ss.str().c_str());
   } else {
     // ss << "FAILURE"<<std::endl;

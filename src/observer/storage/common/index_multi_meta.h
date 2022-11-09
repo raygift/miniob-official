@@ -35,7 +35,7 @@ public:
 public:
   const char *name() const;
   const char *field() const;
-  const std::vector<std::string> *fields() const;
+  const std::vector<std::string> fields() const;
 
   void desc(std::ostream &os) const;
   const int is_unique();
@@ -46,7 +46,7 @@ public:
 
 protected:
   std::string name_;   // index's name
-  std::vector<std::string> *fields_;  // field's name
+  std::vector<std::string> fields_;  // field's name
   int is_unique_;
 };
 #endif  // __OBSERVER_STORAGE_COMMON_INDEX_MULTI_META_H__

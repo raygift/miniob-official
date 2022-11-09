@@ -1253,6 +1253,11 @@ const std::vector<Index *> *Table::find_all_index()
   return &indexes_;
 }
 
+const std::vector<IndexMulti *> *Table::find_all_m_index()
+{
+  return &m_indexes_;
+}
+
 bool Table::is_destroied(){
   return destroied_;
 }

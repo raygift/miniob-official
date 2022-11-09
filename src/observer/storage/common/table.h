@@ -136,6 +136,8 @@ public:
   Index *find_index(const char *index_name) const;
   Index *find_index_by_field(const char *field_name) const;
   const std::vector<Index *> *find_all_index();
+  const std::vector<IndexMulti *> *find_all_m_index();
+
   bool is_destroied();
 
 private:

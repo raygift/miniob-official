@@ -33,7 +33,7 @@ RC IndexMultiMeta::init(const char *name, std::vector<const FieldMeta *> fields_
   name_ = name;
   for(size_t i = 0;i< fields_meta.size();i++){
     const FieldMeta *field = fields_meta[i];
-    fields_->push_back(field->name());
+    fields_.push_back(field->name());
   }
   is_unique_ = is_unique;
   return RC::SUCCESS;
@@ -52,7 +52,7 @@ const char *IndexMultiMeta::field() const
 }
 
 
-const std::vector<std::string> *IndexMultiMeta::fields() const
+const std::vector<std::string> IndexMultiMeta::fields() const
 {
   // TODO(multi-index)
   return fields_;

@@ -790,7 +790,7 @@ RC BplusTreeMultiHandler::create(const char *file_name, std::vector<AttrType> at
   }
 
   // 计算并记录 B+Tree 内部节点和叶子节点可以容纳的索引项数量
-  int attrs_length;
+  int attrs_length = 0;
   for (size_t i = 0; i < lens.size(); i++) {
     attrs_length += lens[i];
   }
@@ -1250,7 +1250,7 @@ char *BplusTreeMultiHandler::make_key(const char *user_key, const RID &rid)
     return nullptr;
   }
 
-  int32_t attr_length;
+  int32_t attr_length = 0;
   for (size_t i = 0; i < file_header_.attrs_len.size(); i++) {
     attr_length += file_header_.attrs_len[i];
   }
