@@ -303,17 +303,43 @@ RC Table::insert_record(Trx *trx, Record *record)
   }
 
   rc = insert_entry_of_indexes(record->data(), record->rid());
-  if (rc != RC::SUCCESS) {
-    RC rc2 = delete_entry_of_indexes(record->data(), record->rid(), true);
+  if (rc != RC::SUCCESS ) {
+    if (trx != nullptr) {
+      trx->delete_record(this, record);
+    }
+    RC rc2;
+    if (rc != RC::RECORD_DUPLICATE_KEY) {
+      rc2 = delete_entry_of_indexes(record->data(), record->rid(), true);
+      if (rc2 != RC::SUCCESS) {
+        LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
+            name(),
+            rc2,
+            strrc(rc2));
+      }
+    }
+
+    rc2 = record_handler_->delete_record(&record->rid());
     if (rc2 != RC::SUCCESS) {
-      LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
+      LOG_PANIC("Failed to rollback record data when insert index entries failed. table name=%s, rc=%d:%s",
+          name(),
+          rc2,
+          strrc(rc2));
+    }
+    return rc;
+    }
+  // 向多列索引插入数据
+  rc = insert_entry_of_m_indexes(record->data(), record->rid());
+  if (rc != RC::SUCCESS) {
+    RC rc2 = delete_entry_of_m_indexes(record->data(), record->rid(), true);
+    if (rc2 != RC::SUCCESS) {
+      LOG_ERROR("Failed to rollback m_index data when insert m_index entries failed. table name=%s, rc=%d:%s",
           name(),
           rc2,
           strrc(rc2));
     }
     rc2 = record_handler_->delete_record(&record->rid());
     if (rc2 != RC::SUCCESS) {
-      LOG_PANIC("Failed to rollback record data when insert index entries failed. table name=%s, rc=%d:%s",
+      LOG_PANIC("Failed to rollback record data when insert m_index entries failed. table name=%s, rc=%d:%s",
           name(),
           rc2,
           strrc(rc2));
@@ -615,6 +641,8 @@ public:
 
   RC insert_index(const Record *record)
   {
+    IndexMeta IM = index_->index_meta();
+    const int is_unique =  IM.is_unique();
     return index_->insert_entry(record->data(), &record->rid());
   }
 
@@ -1219,6 +1247,20 @@ RC Table::delete_entry_of_indexes(const char *record, const RID &rid, bool error
 {
   RC rc = RC::SUCCESS;
   for (Index *index : indexes_) {
+    rc = index->delete_entry(record, &rid);
+    if (rc != RC::SUCCESS) {
+      if (rc != RC::RECORD_INVALID_KEY || !error_on_not_exists) {
+        break;
+      }
+    }
+  }
+  return rc;
+}
+
+RC Table::delete_entry_of_m_indexes(const char *record, const RID &rid, bool error_on_not_exists)
+{
+  RC rc = RC::SUCCESS;
+  for (IndexMulti *index : m_indexes_) {
     rc = index->delete_entry(record, &rid);
     if (rc != RC::SUCCESS) {
       if (rc != RC::RECORD_INVALID_KEY || !error_on_not_exists) {

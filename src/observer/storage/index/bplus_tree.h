@@ -75,17 +75,30 @@ public:
   {
     attr_comparator_.init(type, length);
   }
+  void ignore_rid()
+  {
+    ignore_rid_ = true;
+  }
+
+  void ignore_rid_reset()
+  {
+    ignore_rid_ = false;
+  }
 
   const AttrComparator &attr_comparator() const {
     return attr_comparator_;
   }
-
+// 原比较方法的逻辑为：若value1 与 value2 相等，继续比较 rid；否则value1 与 value2 不相等，返回比较结果
+// 为了支持unique，逻辑改为：若 value1 与 value2 相同，直接返回0；否则 value1 与 value2 不相等，跟原方法一样返回结果。
   int operator() (const char *v1, const char *v2) const {
     int result = attr_comparator_(v1, v2);
     if (result != 0) {
       return result;
     }
 
+    if(ignore_rid_){
+      return result;
+    }
     const RID *rid1 = (const RID *)(v1 + attr_comparator_.attr_length());
     const RID *rid2 = (const RID *)(v2 + attr_comparator_.attr_length());
     return RID::compare(rid1, rid2);
@@ -93,6 +106,7 @@ public:
 
 private:
   AttrComparator attr_comparator_;
+  bool ignore_rid_ = false;
 };
 
 class AttrPrinter
@@ -417,6 +431,7 @@ public:
    */
   RC insert_entry(const char *user_key, const RID *rid);
 
+  RC insert_entry(const char *user_key, const RID *rid, const int is_unique);
   /**
    * 从IndexHandle句柄对应的索引中删除一个值为（*pData，rid）的索引项
    * @return RECORD_INVALID_KEY 指定值不存在
@@ -479,6 +494,9 @@ protected:
 
   RC insert_entry_into_parent(Frame *frame, Frame *new_frame, const char *key);
   RC insert_entry_into_leaf_node(Frame *frame, const char *pkey, const RID *rid);
+  RC insert_entry_into_leaf_node(Frame *frame, const char *pkey, const RID *rid, const int is_unique);
+  RC check_entry_duplication(Frame *frame, const char *pkey, const RID *rid, const int is_unique);
+
   RC update_root_page_num();
   RC create_new_tree(const char *key, const RID *rid);
 

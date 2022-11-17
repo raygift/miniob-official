@@ -48,7 +48,7 @@ public:
 protected:
   std::string name_;   // index's name
   std::string field_;  // field's name
-  int is_unique_;
+  int is_unique_; // 记录是否为唯一索引，1 表示唯一索引，0 表示非唯一索引
   // 针对多列索引，
   // 根据 field_ 在 multi_fileds_ 中的顺序来判断该属性的叶节点所保存的内容；
   // 最后一个属性叶节点保存实际 record；

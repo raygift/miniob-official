@@ -1148,6 +1148,83 @@ RC BplusTreeHandler::find_leaf_internal(const std::function<PageNum(InternalInde
   return RC::SUCCESS;
 }
 
+RC BplusTreeHandler::check_entry_duplication(Frame *frame, const char *key, const RID *rid, const int is_unique)
+{
+  if (!is_unique) {  // 索引不是唯一约束
+    return RC::SUCCESS;
+  }
+  // 索引是唯一约束，比较叶子节点中 rid 之前的 key 部分是否重复
+  LeafIndexNodeHandler leaf_node(file_header_, frame);
+  bool exists = false;
+  key_comparator_.ignore_rid();
+  leaf_node.lookup(key_comparator_, key, &exists);
+  key_comparator_.ignore_rid_reset();
+  if (exists) {
+    LOG_TRACE("unique key already exists");
+    return RC::RECORD_DUPLICATE_KEY;
+  }
+  return RC::SUCCESS;
+}
+
+RC BplusTreeHandler::insert_entry_into_leaf_node(Frame *frame, const char *key, const RID *rid, const int is_unique)
+{
+  RC rc1 = check_entry_duplication(frame, key, rid, is_unique);
+  if (rc1 != RC::SUCCESS) {
+    LOG_TRACE("entry exists");
+    return RC::RECORD_DUPLICATE_KEY;
+  }
+
+  LeafIndexNodeHandler leaf_node(file_header_, frame);
+  bool exists = false;
+  int insert_position = leaf_node.lookup(key_comparator_, key, &exists);
+  if (exists) {
+    LOG_TRACE("entry exists");
+    return RC::RECORD_DUPLICATE_KEY;
+  }
+
+  if (leaf_node.size() < leaf_node.max_size()) {
+    leaf_node.insert(insert_position, key, (const char *)rid);
+    frame->mark_dirty();
+    disk_buffer_pool_->unpin_page(frame);
+    return RC::SUCCESS;
+  }
+
+  Frame * new_frame = nullptr;
+  RC rc = split<LeafIndexNodeHandler>(frame, new_frame);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to split leaf node. rc=%d:%s", rc, strrc(rc));
+    return rc;
+  }
+
+  LeafIndexNodeHandler new_index_node(file_header_, new_frame);
+  new_index_node.set_prev_page(frame->page_num());
+  new_index_node.set_next_page(leaf_node.next_page());
+  new_index_node.set_parent_page_num(leaf_node.parent_page_num());
+  leaf_node.set_next_page(new_frame->page_num());
+
+  PageNum next_page_num = new_index_node.next_page();
+  if (next_page_num != BP_INVALID_PAGE_NUM) {
+    Frame * next_frame;
+    rc = disk_buffer_pool_->get_this_page(next_page_num, &next_frame);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to fetch next page. page num=%d, rc=%d:%s", next_page_num, rc, strrc(rc));
+      return rc;
+    }
+
+    LeafIndexNodeHandler next_node(file_header_, next_frame);
+    next_node.set_prev_page(new_frame->page_num());
+    disk_buffer_pool_->unpin_page(next_frame);
+  }
+
+  if (insert_position < leaf_node.size()) {
+    leaf_node.insert(insert_position, key, (const char *)rid);
+  } else {
+    new_index_node.insert(insert_position - leaf_node.size(), key, (const char *)rid);
+  }
+
+  return insert_entry_into_parent(frame, new_frame, new_index_node.key_at(0));
+}
+
 RC BplusTreeHandler::insert_entry_into_leaf_node(Frame *frame, const char *key, const RID *rid)
 {
   LeafIndexNodeHandler leaf_node(file_header_, frame);
@@ -1388,6 +1465,58 @@ void BplusTreeHandler::free_key(char *key)
   mem_pool_item_->free(key);
 }
 
+RC BplusTreeHandler::insert_entry(const char *user_key, const RID *rid, const int is_unique)
+{
+// 照搬 BplusTreeHander::insert_entry 前半部分
+  if (user_key == nullptr || rid == nullptr) {
+    LOG_WARN("Invalid arguments, key is empty or rid is empty");
+    return RC::INVALID_ARGUMENT;
+  }
+
+  char *key = make_key(user_key, *rid);
+  if (key == nullptr) {
+    LOG_WARN("Failed to alloc memory for key.");
+    return RC::NOMEM;
+  }
+
+  if (is_empty()) {// 若 file_header_.root_page 没有记录合法 page_num，则认为 B+Tree 不存在
+    RC rc = create_new_tree(key, rid);// 创建 B+Tree 并将 key,rid 存入树中唯一叶子节点
+    mem_pool_item_->free(key);
+    return rc;
+  }
+// 若已经存在一棵 B+Tree
+  Frame *frame;
+  RC rc = find_leaf(key, frame);// 找到 key 可能存在的叶子节点
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("Failed to find leaf %s. rc=%d:%s", rid->to_string().c_str(), rc, strrc(rc));
+    mem_pool_item_->free(key);
+    return rc;
+  }
+
+// 结束照搬 BplusTreeHander::insert_entry 前半部分
+
+  rc =
+      insert_entry_into_leaf_node(frame, key, rid, is_unique);  // 将 key 插入该叶子节点中，插入时可能存在节点分裂等情况 // 修改BplusTreeHander::insert_entry
+
+
+// 照搬 BplusTreeHander::insert_entry 后半部分
+  if (rc != RC::SUCCESS) {
+    LOG_TRACE("Failed to insert into leaf of index, rid:%s", rid->to_string().c_str());
+    disk_buffer_pool_->unpin_page(frame);
+    mem_pool_item_->free(key);
+    // disk_buffer_pool_->check_all_pages_unpinned(file_id_);
+    return rc;
+  }
+
+  mem_pool_item_->free(key);
+  LOG_TRACE("insert entry success");
+  // disk_buffer_pool_->check_all_pages_unpinned(file_id_);
+  return RC::SUCCESS;
+//
+
+ return rc;
+
+}
 RC BplusTreeHandler::insert_entry(const char *user_key, const RID *rid)
 {
   if (user_key == nullptr || rid == nullptr) {

@@ -126,6 +126,7 @@ private:
   RC insert_entry_of_m_indexes(const char *record, const RID &rid);
 
   RC delete_entry_of_indexes(const char *record, const RID &rid, bool error_on_not_exists);
+  RC delete_entry_of_m_indexes(const char *record, const RID &rid, bool error_on_not_exists);
   RC update_entry_of_indexes(const Record *record, const Record *new_record);
 
 private:

@@ -90,7 +90,8 @@ RC BplusTreeIndex::close()
 
 RC BplusTreeIndex::insert_entry(const char *record, const RID *rid)
 {
-  return index_handler_.insert_entry(record + field_meta_.offset(), rid);
+  const int is_unique = this->is_unique();
+  return index_handler_.insert_entry(record + field_meta_.offset(), rid, is_unique);
 }
 
 RC BplusTreeIndex::delete_entry(const char *record, const RID *rid)
