@@ -52,15 +52,48 @@ public:
   }
 
   // operators() 这里的 v1\v2 都是多列属性拼接的值
-  // 逐个属性遍历，直到遇到不相等的值，并返回比较结果
+  // 根据最左匹配原则，需要从左向右逐个属性扩展
+  // 但也可以从左向右，逐个属性单独比较，直到遇到不相等的值，并返回比较结果
+  
+  /* should delete
+    // 假设v1、v2 均为 [field1|field2|field3] 生成的 key
+    // 则第一轮比较 v1、v2 key的 field1 部分
+    // 第二轮比较 v1、v2 key 的 field1|field2 两个属性拼接的部分
+    // 第三轮比较  v1、v2 key 的  field1|field2|field3 三个属性拼接的部分，即整个key 的 rid 之前的部分
+  */
   int operator()(const char *v1, const char *v2) const {
+    // 若 v1、v2 不包含索引的所有列
+    // 分两种情况
+    // 情况1：v1、v2 长度相同，都小于所有列值构成的 key 的长度（此场景是否会出现？）
+    // 暂时认为对于 key 的比较，总是输入的值得到的key，与已经存储与B+Tree 中的key 比较，而B+Tree
+    // key一定包含索引的所有列 因此此情况不应存在
+    // int len1 = strlen(v1), len2 = strlen(v2);
+    // if (strlen(v1) != attr_length_ && strlen(v2) != attr_length_) {
+    //   LOG_ERROR("unexpected key length. got %d %d , want %d", strlen(v1), strlen(v2), attr_length_);
+    //   abort();
+    // }
+    // 情况2：v1、v2 的长度不同（其中一个为B+Tree
+    // 中的节点key，另一个为待插入或查找的左侧部分列组成的key，使用最左匹配原则）
+
     int offset = 0;
     for (size_t i = 0; i < attrs_type_.size(); i++) {
       int result = compare(v1 + offset, v2 + offset, attrs_type_[i], attrs_length_[i]);
-      if (result != 0) {
-        return result;
+      if (result != 0) {  // 遇到值不相等的列
+        return result;    // 返回比较结果
       }
+      offset += attrs_length_[i];
+
+      //    情况2.1：较短的v 匹配较长的v 的左侧部分（根据最左匹配原则，返回0 表示较短v匹配了较长v的左侧部分）
+      //    判断到达较短v 的末位，且没有发现不匹配的field，返回0
+      // if (offset >= len1 || offset >= len2) {
+      //   break;
+      // }
+      //    情况2.2：v1、v2 的长度不同，较短的 v 与较长的 v
+      //    的左侧部分存在不同值（根据最左匹配原则，返回不同部分的比较结果，会在逐个遍历列进行比较时得到比较结果）
+      //    无需特别处理
     }
+    // 若所有属性比较结束，则不存在不相同的列值，v1与 v2 认为相等
+
     return 0;
   }
 
@@ -88,9 +121,9 @@ public:
   }
 
 private:
-  std::vector<AttrType> attrs_type_;
-  std::vector<int> attrs_length_;
-  int attr_length_;
+  std::vector<AttrType> attrs_type_;  // 多列索引每个列的值类型
+  std::vector<int> attrs_length_;     // 多列索引每个列的值长度
+  int attr_length_;                   // 多列索引所有列对应值的总长度
 };
 
 class MultiKeyComparator

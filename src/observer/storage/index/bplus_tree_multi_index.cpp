@@ -107,7 +107,7 @@ RC BplusTreeMultiIndex::insert_entry(const char *record, const RID *rid)
     key_len += multi_fields_meta_[i]->len();
   }
 
-  char *user_key = new char(key_len + 1);
+  char *user_key = new char(key_len);
   int offset = 0;
   // 将多列属性的值取出，组合为 user_key ， 传递给 IndexHandler 用于创建 B+Tree 中的 key
   for (size_t i = 0; i < field_num; i++) {
@@ -122,8 +122,20 @@ RC BplusTreeMultiIndex::insert_entry(const char *record, const RID *rid)
 RC BplusTreeMultiIndex::delete_entry(const char *record, const RID *rid)
 {
   // TODO(multi-index)
-  return RC::SUCCESS;
-  // return index_handler_.delete_entry(record + field_meta_.offset(), rid);
+  size_t field_num = multi_fields_meta_.size();
+  int key_len = 0;
+  for (size_t i = 0; i < field_num; i++) {
+    key_len += multi_fields_meta_[i]->len();
+  }
+
+  char *user_key = new char(key_len);
+  int offset = 0;
+  // 将多列属性的值取出，组合为 user_key ， 传递给 IndexHandler 用于创建 B+Tree 中的 key
+  for (size_t i = 0; i < field_num; i++) {
+    memcpy(user_key + offset, record + multi_fields_meta_[i]->offset(), multi_fields_meta_[i]->len());
+    offset += multi_fields_meta_[i]->len();
+  }
+  return m_index_handler_.delete_entry(user_key, rid);
     // return RC::SUCCESS;
 }
 

@@ -1562,7 +1562,7 @@ RC BplusTreeMultiHandler::delete_entry(const char *user_key, const RID *rid)
     LOG_WARN("Failed to alloc memory for key. size=%d", file_header_.key_length);
     return RC::NOMEM;
   }
-  int attrs_length;
+  int attrs_length = 0;
   for (size_t i = 0; i < file_header_.attrs_len.size(); i++) {
     attrs_length += file_header_.attrs_len[i];
   }

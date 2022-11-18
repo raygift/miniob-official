@@ -330,6 +330,9 @@ RC Table::insert_record(Trx *trx, Record *record)
   // 向多列索引插入数据
   rc = insert_entry_of_m_indexes(record->data(), record->rid());
   if (rc != RC::SUCCESS) {
+    if (trx != nullptr) {
+      trx->delete_record(this, record);
+    }
     RC rc2 = delete_entry_of_m_indexes(record->data(), record->rid(), true);
     if (rc2 != RC::SUCCESS) {
       LOG_ERROR("Failed to rollback m_index data when insert m_index entries failed. table name=%s, rc=%d:%s",
@@ -1147,6 +1150,12 @@ RC Table::delete_record(Trx *trx, Record *record)
   rc = delete_entry_of_indexes(record->data(), record->rid(), false);  // 重复代码 refer to commit_delete
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to delete indexes of record (rid=%d.%d). rc=%d:%s",
+                record->rid().page_num, record->rid().slot_num, rc, strrc(rc));
+    return rc;
+  }
+  rc = delete_entry_of_m_indexes(record->data(), record->rid(), false);  // 重复代码 refer to commit_delete
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to delete m_indexes of record (rid=%d.%d). rc=%d:%s",
                 record->rid().page_num, record->rid().slot_num, rc, strrc(rc));
     return rc;
   } 
