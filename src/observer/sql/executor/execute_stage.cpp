@@ -717,7 +717,6 @@ RC ExecuteStage::do_show_index(SQLStageEvent *sql_event)
       auto m_index_meta = (*mit)->index_multi_meta();
       // index_meta.desc(ss);
       int non_unique = m_index_meta.is_unique() ? 0 : 1;
-
       // 遍历多列索引的多个列，得到列名
       auto m_index_fields = (*mit)->flelds_meta();
       int m_seq = 0;
@@ -726,11 +725,8 @@ RC ExecuteStage::do_show_index(SQLStageEvent *sql_event)
            << (*f_it)->name() << std::endl;
       }
     }
-
-    // for(auto )
     session_event->set_response(ss.str().c_str());
   } else {
-    // ss << "FAILURE"<<std::endl;
     session_event->set_response("FAILURE\n");
   }
   return RC::SUCCESS;

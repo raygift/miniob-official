@@ -23,7 +23,7 @@ See the Mulan PSL v2 for more details. */
 // const static Json::StaticString FIELD_NAME("name");
 // const static Json::StaticString FIELD_FIELD_NAME("field_name");
 
-RC IndexMultiMeta::init(const char *name, std::vector<const FieldMeta *> fields_meta, bool is_unique)
+RC IndexMultiMeta::init(const char *name, std::vector<const FieldMeta *> fields_meta, int is_unique)
 {
   if (common::is_blank(name)) {
     LOG_ERROR("Failed to init index, name is empty.");

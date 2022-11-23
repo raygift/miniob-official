@@ -247,6 +247,16 @@ create_index:		/*create index 语句的语法解析树*/
 			index_attr_init(&attribute, $9);
 			create_index_append_attribute(&CONTEXT->ssql->sstr.create_index, &attribute);
 		}
+	|CREATE UNIQUE INDEX ID ON ID LBRACE ID COMMA ID index_list RBRACE SEMICOLON 
+		{
+			CONTEXT->ssql->flag = SCF_CREATE_INDEX;//"create_index";
+			create_index_init(&CONTEXT->ssql->sstr.create_index, $4, $6, $8, "UNIQUE");
+			AttrInfo attribute;
+			index_attr_init(&attribute, $8);
+			create_index_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
+			index_attr_init(&attribute, $10);
+			create_index_append_attribute(&CONTEXT->ssql->sstr.create_index, &attribute);
+		}
     ;
 index_list:
     /* empty */

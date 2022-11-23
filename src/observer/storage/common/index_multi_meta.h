@@ -30,7 +30,7 @@ class IndexMultiMeta {
 public:
   IndexMultiMeta() = default;
 
-  RC init(const char *name, std::vector<const FieldMeta *> fields_meta, bool is_unique);
+  RC init(const char *name, std::vector<const FieldMeta *> fields_meta, int is_unique);
 
 public:
   const char *name() const;
