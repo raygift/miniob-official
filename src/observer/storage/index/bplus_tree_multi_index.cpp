@@ -114,8 +114,8 @@ RC BplusTreeMultiIndex::insert_entry(const char *record, const RID *rid)
     memcpy(user_key + offset, record + multi_fields_meta_[i]->offset(), multi_fields_meta_[i]->len());
     offset += multi_fields_meta_[i]->len();
   }
-
-  return m_index_handler_.insert_entry(user_key, rid);
+  const int is_unique = this->is_unique();
+  return m_index_handler_.insert_entry(user_key, rid, is_unique);
   // return RC::SUCCESS;
 }
 

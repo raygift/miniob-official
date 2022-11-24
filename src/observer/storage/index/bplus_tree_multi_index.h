@@ -42,6 +42,12 @@ public:
   RC sync() override;
 
 private:
+  const int is_unique()
+  {
+    return index_multi_meta_.is_unique();
+  }
+
+private:
   bool inited_ = false;
   // BplusTreeHandler 用于提供 B+ 树相关操作，针对 index 的 create、insert_entry 等操作都需要 B+树 执行对应操作
   // BplusTreeHandler index_handler_;

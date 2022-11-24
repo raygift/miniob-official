@@ -333,12 +333,15 @@ RC Table::insert_record(Trx *trx, Record *record)
     if (trx != nullptr) {
       trx->delete_record(this, record);
     }
-    RC rc2 = delete_entry_of_m_indexes(record->data(), record->rid(), true);
-    if (rc2 != RC::SUCCESS) {
-      LOG_ERROR("Failed to rollback m_index data when insert m_index entries failed. table name=%s, rc=%d:%s",
-          name(),
-          rc2,
-          strrc(rc2));
+    RC rc2;
+    if (rc != RC::RECORD_DUPLICATE_KEY) {
+      rc2 = delete_entry_of_m_indexes(record->data(), record->rid(), true);
+      if (rc2 != RC::SUCCESS) {
+        LOG_ERROR("Failed to rollback m_index data when insert m_index entries failed. table name=%s, rc=%d:%s",
+            name(),
+            rc2,
+            strrc(rc2));
+      }
     }
     rc2 = record_handler_->delete_record(&record->rid());
     if (rc2 != RC::SUCCESS) {

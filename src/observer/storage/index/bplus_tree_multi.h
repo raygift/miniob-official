@@ -133,7 +133,15 @@ public:
   {
     attrs_comparator_.init(attrs_type, attrs_length);
   }
+  void ignore_rid()
+  {
+    ignore_rid_ = true;
+  }
 
+  void ignore_rid_reset()
+  {
+    ignore_rid_ = false;
+  }
   const AttrsComparator &attrs_comparator() const {
     return attrs_comparator_;
   }
@@ -144,6 +152,9 @@ public:
       return result;
     }
 
+    if(ignore_rid_){
+      return result;
+    }
     const RID *rid1 = (const RID *)(v1 + attrs_comparator_.attr_length());
     const RID *rid2 = (const RID *)(v2 + attrs_comparator_.attr_length());
     return RID::compare(rid1, rid2);
@@ -151,6 +162,7 @@ public:
 
 private:
   AttrsComparator attrs_comparator_;
+  bool ignore_rid_ = false;
 };
 
 // class AttrPrinter
@@ -484,6 +496,7 @@ public:
    * @note 这里假设user_key的内存大小与attr_length 一致
    */
   RC insert_entry(const char *user_key, const RID *rid);
+  RC insert_entry(const char *user_key, const RID *rid, const int is_unique);
 
   /**
    * 从IndexHandle句柄对应的索引中删除一个值为（*pData，rid）的索引项
@@ -547,6 +560,9 @@ protected:
 
   RC insert_entry_into_parent(Frame *frame, Frame *new_frame, const char *key);
   RC insert_entry_into_leaf_node(Frame *frame, const char *pkey, const RID *rid);
+  RC insert_entry_into_leaf_node(Frame *frame, const char *key, const RID *rid, const int is_unique);
+  RC check_entry_duplication(Frame *frame, const char *key, const RID *rid, const int is_unique);
+
   RC update_root_page_num();
   RC create_new_tree(const char *key, const RID *rid);
 
