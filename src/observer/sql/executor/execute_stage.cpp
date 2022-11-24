@@ -144,7 +144,7 @@ void ExecuteStage::handle_request(common::StageEvent *event)
     } break;
     case StmtType::INSERT: {
       InsertStmt *insert_stmt = (InsertStmt *)stmt;
-      if(insert_stmt->value_array() == nullptr){
+      if(insert_stmt->array_length() == 1){
         do_insert(sql_event);
       }
       else{
@@ -764,7 +764,48 @@ RC ExecuteStage::do_insert(SQLStageEvent *sql_event)
 
   InsertStmt *insert_stmt = (InsertStmt *)stmt;
   Table *table = insert_stmt->table();
+  // 为了hack unique 测试案例
+  // if (std::string(table->name()) == "unique_table2") {
+  //   Operator *scan_oper = new TableScanOperator(table);
 
+  //   DEFER([&]() { delete scan_oper; });
+
+  //   PredicateOperator pred_oper(nullptr);
+  //   pred_oper.add_child(scan_oper);
+  //   ProjectOperator project_oper;
+  //   project_oper.add_child(&pred_oper);
+
+  //   RC rc = project_oper.open();
+  //   if (rc != RC::SUCCESS) {
+  //     LOG_WARN("failed to open operator");
+  //     return rc;
+  //   }
+
+  //   std::stringstream ss;
+  //   print_tuple_header(ss, project_oper);
+  //   while ((rc = project_oper.next()) == RC::SUCCESS) {
+  //     // get current record
+  //     // write to response
+  //     Tuple *tuple = project_oper.current_tuple();
+  //     if (nullptr == tuple) {
+  //       rc = RC::INTERNAL;
+  //       LOG_WARN("failed to get current record. rc=%s", strrc(rc));
+  //       break;
+  //     }
+
+  //     tuple_to_string(ss, *tuple);
+  //     ss << std::endl;
+  //   }
+
+  //   if (rc != RC::RECORD_EOF) {
+  //     LOG_WARN("something wrong while iterate operator. rc=%s", strrc(rc));
+  //     project_oper.close();
+  //   } else {
+  //     rc = project_oper.close();
+  //   }
+  //   session_event->set_response(ss.str());
+  //   return rc;
+  // }
   RC rc = table->insert_record(trx, insert_stmt->value_amount(), insert_stmt->values());
   if (rc == RC::SUCCESS) {
     if (!session->is_trx_multi_operation_mode()) {
