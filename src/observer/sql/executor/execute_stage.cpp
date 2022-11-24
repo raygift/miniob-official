@@ -706,7 +706,7 @@ RC ExecuteStage::do_show_index(SQLStageEvent *sql_event)
     for (auto it = indexes->begin(); it != indexes->end(); it++) {
       auto index_meta = (*it)->index_meta();
       // index_meta.desc(ss);
-      int non_unique = index_meta.is_unique();
+      int non_unique = index_meta.is_unique() == 1 ? 0 : 1;  // 需要显示 非唯一索引 ，对 is_unique 值进行反转
       ss << table_name << " | " << non_unique << " | " << index_meta.name() << " | " 
       << seq << " | " << index_meta.field() << std::endl;
     }
@@ -716,7 +716,7 @@ RC ExecuteStage::do_show_index(SQLStageEvent *sql_event)
     
       auto m_index_meta = (*mit)->index_multi_meta();
       // index_meta.desc(ss);
-      int non_unique = m_index_meta.is_unique();
+      int non_unique = m_index_meta.is_unique() == 1 ? 0 : 1;  // 需要显示 非唯一索引 ，对 is_unique 值进行反转
       // 遍历多列索引的多个列，得到列名
       auto m_index_fields = (*mit)->flelds_meta();
       int m_seq = 0;
