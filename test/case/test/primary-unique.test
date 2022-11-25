@@ -1,6 +1,6 @@
 -- echo initialization
 CREATE TABLE unique_table1(id int, col1 int, col2 int);
-create table unique_table2(id1 int,id2 int,col1 int,col2 int);
+CREATE TABLE unique_table2(id1 int,id2 int,col1 int,col2 int);
 INSERT INTO unique_table1 VALUES (1,1,1);
 INSERT INTO unique_table2 VALUES (1,1,1,1);
 

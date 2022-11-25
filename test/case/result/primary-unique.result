@@ -19,7 +19,6 @@ INSERT INTO unique_table1 VALUES (3,2,1);
 SUCCESS
 INSERT INTO unique_table1 VALUES (1,2,1);
 FAILURE
-
 CREATE UNIQUE INDEX index_id on unique_table2(id1,id2);
 SUCCESS
 INSERT INTO unique_table2 VALUES (2,2,1,1);
